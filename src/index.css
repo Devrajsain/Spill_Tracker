@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFFFFF;
+    color: #1A2433;
+  }
+}
+
+/* Formal Leaflet custom styling for government dashboard */
+.leaflet-container {
+  font-family: 'Inter', sans-serif !important;
+  z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 4px !important;
+  border: 1px solid #E2E5EA !important;
+  box-shadow: 0 4px 12px rgba(11, 37, 69, 0.12) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+}
+
+/* Custom scrollbars for dense gov panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F3F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #C1C7D0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #1A3C6E;
+}
