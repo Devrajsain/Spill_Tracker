@@ -1,0 +1,30 @@
+{
+  "spill_id": "S1A_IW_GRDH_1SDV_20260827T063012_OIL_001",
+  "observation_time": "2026-08-27T06:30:12Z",
+  "area_sq_km": 6.84,
+  "perimeter_km": 15.32,
+  "centroid": {
+    "latitude": 25.1245,
+    "longitude": 53.8421
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [53.8200, 25.1100],
+        [53.8700, 25.1100],
+        [53.8700, 25.1400],
+        [53.8200, 25.1400],
+        [53.8200, 25.1100]
+      ]
+    ]
+  },
+  "metadata": {
+    "dataset": "Zenodo Sentinel-1 Oil Spill Dataset",
+    "sensor": "Sentinel-1A C-SAR",
+    "acquisition_mode": "IW",
+    "polarization": "VV",
+    "relative_orbit": 71,
+    "source_part": "Part 1"
+  }
+}

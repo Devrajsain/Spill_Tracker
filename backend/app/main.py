@@ -1,8 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.config import settings
 from app.db import engine, Base, SessionLocal
 from app.routers import cases, spills, vessels
+from app.feature2.api.routes import router as feature2_router
+from app.feature2.exceptions import EnvironmentalDataError
 from app.models.case import ForensicCase
 from app.models.spill import SpillDetection
 from app.models.vessel import VesselAttribution
@@ -25,10 +28,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Feature 2 environmental data exception handling
+@app.exception_handler(EnvironmentalDataError)
+async def environmental_data_error_handler(request: Request, exc: EnvironmentalDataError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": exc.__class__.__name__,
+            "detail": str(exc),
+        }
+    )
+
 # Include Routers
 app.include_router(cases.router, prefix=settings.API_V1_STR)
 app.include_router(spills.router, prefix=settings.API_V1_STR)
 app.include_router(vessels.router, prefix=settings.API_V1_STR)
+app.include_router(feature2_router)
 
 @app.on_event("startup")
 def startup_event():
