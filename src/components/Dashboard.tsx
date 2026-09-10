@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Shield, Layers, Play, Pause, ChevronRight, AlertTriangle, 
   MapPin, Anchor, Eye, FileText, Download, Filter, RefreshCw, BarChart2,
-  Calendar, CheckCircle, Info, ChevronDown, Printer, X
+  Calendar, CheckCircle, Info, ChevronDown, Printer, X, Trash2
 } from 'lucide-react';
 import L from 'leaflet';
+import { loadDashboardData, listCases, deleteCase, DashboardCaseData, CaseResponse } from '../services/api';
 
 interface DashboardProps {
   onNavigate: (view: 'home' | 'dashboard' | 'workflow') => void;
@@ -12,206 +13,241 @@ interface DashboardProps {
   selectedCaseId?: string;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, selectedCaseId = 'SLK-2291' }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, selectedCaseId = '' }) => {
   const [activeCase, setActiveCase] = useState<string>(selectedCaseId);
   const [showLayers, setShowLayers] = useState<boolean>(true);
   const [showAnalytics, setShowAnalytics] = useState<boolean>(true);
   const [isPlayingScrubber, setIsPlayingScrubber] = useState<boolean>(false);
-  const [scrubberTime, setScrubberTime] = useState<number>(0); // 0 = detection time, -18 to +18
+  const [scrubberTime, setScrubberTime] = useState<number>(0);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
-  const [selectedVessel, setSelectedVessel] = useState<string>('MT Kaveri Star');
+  const [selectedVessel, setSelectedVessel] = useState<string>('');
+
+  // Live data state
+  const [dashboardData, setDashboardData] = useState<DashboardCaseData | null>(null);
+  const [availableCases, setAvailableCases] = useState<CaseResponse[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
   // Layer Toggles
   const [layers, setLayers] = useState({
     spill: true,
     drift: true,
     ais: true,
-    satTile: 'esri' // 'esri' | 'osm' | 'carto'
+    satTile: 'esri'
   });
 
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<L.Map | null>(null);
   const mapLayersGroup = useRef<L.LayerGroup | null>(null);
 
-  // Case Datasets
-  const caseData: Record<string, any> = {
-    'SLK-2291': {
-      title: 'Gulf of Kutch Maritime Oil Spill',
-      location: 'Gulf of Kutch, Gujarat EEZ',
-      confidence: 'HIGH CONFIDENCE',
-      area: '41.8 km²',
-      length: '16.2 km',
-      width: '5.4 km',
-      estVolume: '7,350 bbl',
-      estAge: '11.4 h',
-      originTime: '2026-09-01 17:20:00 UTC',
-      detectionTime: '2026-09-02 04:18:00 UTC',
-      source: 'Sentinel-1A (IW / VV) — pass 2026-09-02 04:11Z',
-      center: [22.47, 69.21],
-      zoom: 10,
-      spillPolygon: [
-        [22.45, 69.18],
-        [22.48, 69.25],
-        [22.44, 69.28],
-        [22.42, 69.20]
-      ],
-      driftPath: [
-        { label: 'Origin (-18h)', lat: 22.38, lng: 68.95, text: '-18h origin' },
-        { label: '-12h backtrack', lat: 22.41, lng: 69.02, text: '-12h backtrack' },
-        { label: '-6h backtrack', lat: 22.44, lng: 69.10, text: '-6h backtrack' },
-        { label: 'Detected (0h)', lat: 22.47, lng: 69.21, text: 'detected' },
-        { label: '+6h forecast', lat: 22.50, lng: 69.32, text: '+6h forecast' },
-        { label: '+12h forecast', lat: 22.53, lng: 69.43, text: '+12h forecast' }
-      ],
-      vessels: [
-        {
-          name: 'MT Kaveri Star',
-          mmsi: '419008421',
-          type: 'Oil Tanker',
-          flag: 'India',
-          score: 92,
-          proximity: 96,
-          trajectory: 98,
-          behavioral: 88,
-          flags: ['AIS GAP DETECTED', 'NEAR ORIGIN WINDOW', 'COURSE DEVIATION'],
-          lat: 22.39,
-          lng: 68.97,
-          heading: 215,
-          speed: '12.4 kts'
-        },
-        {
-          name: 'Aegean Trader',
-          mmsi: '636019284',
-          type: 'Oil Tanker',
-          flag: 'Liberia',
-          score: 74,
-          proximity: 81,
-          trajectory: 72,
-          behavioral: 66,
-          flags: ['NEAR ORIGIN WINDOW', 'SPEED DROP'],
-          lat: 22.42,
-          lng: 69.08,
-          heading: 180,
-          speed: '14.1 kts'
-        },
-        {
-          name: 'Hai Feng 9',
-          mmsi: '477553900',
-          type: 'Container Cargo',
-          flag: 'Hong Kong',
-          score: 58,
-          proximity: 52,
-          trajectory: 48,
-          behavioral: 60,
-          flags: ['NORMAL TRANSIT'],
-          lat: 22.51,
-          lng: 69.30,
-          heading: 95,
-          speed: '16.8 kts'
+  // Sync selectedCaseId prop into activeCase state whenever it changes
+  useEffect(() => {
+    if (selectedCaseId && selectedCaseId !== activeCase) {
+      setActiveCase(selectedCaseId);
+    }
+  }, [selectedCaseId]);
+
+  // Load available cases on mount and whenever selectedCaseId changes
+  useEffect(() => {
+    listCases()
+      .then(cases => {
+        setAvailableCases(cases);
+        if (cases.length > 0) {
+          if (selectedCaseId) {
+            setActiveCase(selectedCaseId);
+          } else if (activeCase && cases.some(c => c.id === activeCase)) {
+            setActiveCase(activeCase);
+          } else {
+            setActiveCase(cases[0].id);
+          }
+        } else {
+          setIsLoading(false);
         }
-      ]
-    },
-    'SLK-2288': {
-      title: 'Mumbai Offshore Platform Zone Spill',
-      location: 'Bombay High Platform Area',
-      confidence: 'MEDIUM CONFIDENCE',
-      area: '28.4 km²',
-      length: '11.8 km',
-      width: '3.9 km',
-      estVolume: '4,100 bbl',
-      estAge: '8.2 h',
-      originTime: '2026-09-01 22:00:00 UTC',
-      detectionTime: '2026-09-02 06:12:00 UTC',
-      source: 'Sentinel-2 Optical — pass 2026-09-02 06:05Z',
-      center: [19.40, 71.33],
-      zoom: 10,
-      spillPolygon: [
-        [19.38, 71.30],
-        [19.42, 71.36],
-        [19.40, 71.38],
-        [19.36, 71.32]
-      ],
-      driftPath: [
-        { label: 'Origin (-12h)', lat: 19.30, lng: 71.20, text: '-12h origin' },
-        { label: '-6h backtrack', lat: 19.35, lng: 71.26, text: '-6h backtrack' },
-        { label: 'Detected (0h)', lat: 19.40, lng: 71.33, text: 'detected' },
-        { label: '+6h forecast', lat: 19.45, lng: 71.40, text: '+6h forecast' }
-      ],
-      vessels: [
-        {
-          name: 'Aegean Trader',
-          mmsi: '636019284',
-          type: 'Oil Tanker',
-          flag: 'Liberia',
-          score: 88,
-          proximity: 90,
-          trajectory: 86,
-          behavioral: 84,
-          flags: ['NEAR ORIGIN WINDOW', 'SPEED DROP'],
-          lat: 19.32,
-          lng: 71.22,
-          heading: 190,
-          speed: '10.2 kts'
-        },
-        {
-          name: 'INS Taragiri',
-          mmsi: '419000102',
-          type: 'Patrol Support',
-          flag: 'India',
-          score: 35,
-          proximity: 40,
-          trajectory: 30,
-          behavioral: 20,
-          flags: ['NAVAL PATROL'],
-          lat: 19.44,
-          lng: 71.38,
-          heading: 270,
-          speed: '18.0 kts'
+      })
+      .catch(() => {
+        setAvailableCases([]);
+        setIsLoading(false);
+      });
+  }, [selectedCaseId]);
+
+  // Load dashboard data when active case changes
+  useEffect(() => {
+    if (!activeCase) {
+      setDashboardData(null);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setLoadError(null);
+
+    loadDashboardData(activeCase)
+      .then(data => {
+        setDashboardData(data);
+        if (data.vessels.length > 0) {
+          setSelectedVessel(data.vessels[0].name);
         }
-      ]
+        setIsLoading(false);
+      })
+      .catch(err => {
+        // If 404 or case missing, try falling back to first available case from server
+        listCases()
+          .then(cases => {
+            setAvailableCases(cases);
+            const alternate = cases.find(c => c.id !== activeCase);
+            if (alternate) {
+              setActiveCase(alternate.id);
+            } else if (cases.length > 0 && cases[0].id !== activeCase) {
+              setActiveCase(cases[0].id);
+            } else {
+              setLoadError(err.message || 'Failed to load case data');
+              setIsLoading(false);
+            }
+          })
+          .catch(() => {
+            setLoadError(err.message || 'Failed to load case data');
+            setIsLoading(false);
+          });
+      });
+  }, [activeCase]);
+
+  const handleDeleteCase = async (caseIdToDelete: string) => {
+    if (!window.confirm(`Are you sure you want to delete incident ${caseIdToDelete}? This will permanently remove all associated detection, drift forecast, and vessel attribution records.`)) {
+      return;
+    }
+    try {
+      await deleteCase(caseIdToDelete);
+      const updatedCases = await listCases();
+      setAvailableCases(updatedCases);
+      if (updatedCases.length > 0) {
+        setActiveCase(updatedCases[0].id);
+      } else {
+        setActiveCase('');
+        setDashboardData(null);
+      }
+    } catch (err: any) {
+      alert(`Failed to delete case: ${err.message}`);
     }
   };
 
-  const currentData = caseData[activeCase] || caseData['SLK-2291'];
+  // Derive display data from backend response
+  const summary = dashboardData?.case?.summary_json;
+  const spillInfo = summary?.spill;
+  const driftInfo = summary?.drift;
+  const vessels = dashboardData?.vessels || [];
+  const feature2Data = dashboardData?.feature2;
 
-  // Initialize Leaflet Map with Esri World Imagery Basemap
+  const currentData = {
+    title: dashboardData?.case?.name || activeCase,
+    location: dashboardData?.case?.location_name || '',
+    confidence: spillInfo?.confidence_label || 'PENDING',
+    area: spillInfo ? `${spillInfo.area_km2} km²` : '—',
+    length: spillInfo ? `${spillInfo.length_km} km` : '—',
+    width: spillInfo ? `${spillInfo.width_km} km` : '—',
+    estVolume: spillInfo ? `${spillInfo.est_volume_bbl.toLocaleString()} bbl` : '—',
+    estAge: '—',
+    originTime: driftInfo?.origin_timestamp || '—',
+    detectionTime: spillInfo?.detection_timestamp || '—',
+    source: spillInfo?.satellite_source || '—',
+    center: [
+      dashboardData?.case?.center_latitude || 22.47,
+      dashboardData?.case?.center_longitude || 69.21,
+    ] as [number, number],
+    zoom: 10,
+    spillPolygon: spillInfo?.polygon_geojson?.coordinates?.[0]?.map((c: number[]) => [c[1], c[0]]) || [],
+    driftPath: (driftInfo?.drift_trajectory || []).map((pt: any) => ({
+      label: pt.time,
+      lat: pt.lat,
+      lng: pt.lon,
+      text: pt.time,
+    })),
+    vessels: vessels.map(v => ({
+      name: v.name,
+      mmsi: v.mmsi,
+      type: v.type,
+      flag: v.flag,
+      score: v.overall_score,
+      proximity: v.proximity_score,
+      trajectory: v.trajectory_score,
+      behavioral: v.behavioral_score,
+      flags: v.warning_flags || [],
+      lat: v.current_latitude,
+      lng: v.current_longitude,
+      heading: v.heading_deg,
+      speed: v.speed_kts,
+    })),
+  };
+
+  // Cleanup map on component unmount
+  useEffect(() => {
+    return () => {
+      if (leafletMap.current) {
+        try {
+          leafletMap.current.remove();
+        } catch (e) {}
+        leafletMap.current = null;
+      }
+    };
+  }, []);
+
+  // Initialize and Update Leaflet Map
   useEffect(() => {
     if (!mapRef.current) return;
 
-    if (!leafletMap.current) {
-      // Create map instance
-      leafletMap.current = L.map(mapRef.current, {
-        center: currentData.center,
-        zoom: currentData.zoom,
-        zoomControl: false,
-        attributionControl: false
-      });
-
-      // Add Esri World Imagery Basemap Tile Layer
-      const esriSatellite = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-          maxZoom: 18,
-          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    // Check if existing map is still bound to the current DOM element
+    if (leafletMap.current) {
+      try {
+        const container = leafletMap.current.getContainer();
+        if (!container || container !== mapRef.current || !document.body.contains(container)) {
+          leafletMap.current.remove();
+          leafletMap.current = null;
         }
-      );
-      esriSatellite.addTo(leafletMap.current);
+      } catch (e) {
+        leafletMap.current = null;
+      }
+    }
 
-      // Add Leaflet zoom control to top-right
-      L.control.zoom({ position: 'topright' }).addTo(leafletMap.current);
+    if (!leafletMap.current) {
+      if ((mapRef.current as any)._leaflet_id) {
+        delete (mapRef.current as any)._leaflet_id;
+      }
+      try {
+        leafletMap.current = L.map(mapRef.current, {
+          center: currentData.center,
+          zoom: currentData.zoom,
+          zoomControl: false,
+          attributionControl: false
+        });
 
-      // Create Layer Group for data overlays
-      mapLayersGroup.current = L.layerGroup().addTo(leafletMap.current);
+        // Use CartoDB Voyager basemap with authenticated API key
+        const cartoApiKey = (((import.meta as any).env?.VITE_CARTO_API_KEY as string) || '').trim();
+        const cartoTileUrl = cartoApiKey
+          ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoApiKey)}`
+          : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+        const baseTileLayer = L.tileLayer(
+          cartoTileUrl,
+          {
+            maxZoom: 19,
+            subdomains: 'abcd',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
+          }
+        );
+        baseTileLayer.addTo(leafletMap.current);
+        L.control.zoom({ position: 'topright' }).addTo(leafletMap.current);
+        mapLayersGroup.current = L.layerGroup().addTo(leafletMap.current);
+      } catch (err) {
+        console.error("Leaflet map initialization error:", err);
+      }
     } else {
       leafletMap.current.setView(currentData.center, currentData.zoom);
     }
 
-    // Render Overlays onto Leaflet Map
+    // Render Overlays
     if (mapLayersGroup.current) {
       mapLayersGroup.current.clearLayers();
 
       // 1. Spill Polygon Layer
-      if (layers.spill && currentData.spillPolygon) {
+      if (layers.spill && currentData.spillPolygon.length > 0) {
         const polygon = L.polygon(currentData.spillPolygon, {
           color: '#DC2626',
           weight: 2,
@@ -230,7 +266,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
       }
 
       // 2. Drift Trajectory Path Layer
-      if (layers.drift && currentData.driftPath) {
+      if (layers.drift && currentData.driftPath.length > 0) {
         const latLngs = currentData.driftPath.map((p: any) => [p.lat, p.lng]);
         const polyline = L.polyline(latLngs, {
           color: '#1A3C6E',
@@ -239,9 +275,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
         });
         mapLayersGroup.current.addLayer(polyline);
 
-        // Add markers along drift path
         currentData.driftPath.forEach((pt: any) => {
-          const isOrigin = pt.label.includes('Origin');
+          const isOrigin = pt.label?.includes('origin') || pt.label?.includes('Origin');
           const marker = L.circleMarker([pt.lat, pt.lng], {
             radius: isOrigin ? 7 : 4,
             color: isOrigin ? '#B91C1C' : '#1A3C6E',
@@ -254,8 +289,97 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
         });
       }
 
-      // 3. AIS Vessel Markers
-      if (layers.ais && currentData.vessels) {
+      // 3. Feature 2 GeoJSON & Forecast Overlay (Origin + Uncertainty + Forecast Horizons)
+      if (layers.drift && feature2Data?.origin_latitude && feature2Data?.origin_longitude) {
+        const origLat = feature2Data.origin_latitude;
+        const origLon = feature2Data.origin_longitude;
+        const uncertaintyMeters = (feature2Data.origin_uncertainty_radius_km || 2.5) * 1000;
+
+        // Origin uncertainty radius circle
+        const origCircle = L.circle([origLat, origLon], {
+          radius: uncertaintyMeters,
+          color: '#B91C1C',
+          fillColor: '#F87171',
+          fillOpacity: 0.2,
+          weight: 1.5,
+          dashArray: '4, 4'
+        });
+        origCircle.bindTooltip(`Origin Uncertainty: ±${(feature2Data.origin_uncertainty_radius_km || 2.5).toFixed(2)} km`, { direction: 'bottom' });
+        mapLayersGroup.current?.addLayer(origCircle);
+
+        // Origin point marker
+        const origMarker = L.circleMarker([origLat, origLon], {
+          radius: 8,
+          color: '#7F1D1D',
+          fillColor: '#EF4444',
+          fillOpacity: 1,
+          weight: 2
+        });
+        origMarker.bindPopup(`
+          <div style="padding:8px; font-family:Inter,sans-serif;">
+            <strong style="color:#7F1D1D; font-size:12px;">ESTIMATED SPILL ORIGIN (Feature 2)</strong><br/>
+            <span style="font-size:11px;">Coord: ${origLat.toFixed(4)}°N, ${origLon.toFixed(4)}°E</span><br/>
+            <span style="font-size:11px;">Confidence: ${feature2Data.origin_confidence_score ? (feature2Data.origin_confidence_score * 100).toFixed(1) + '%' : 'N/A'}</span><br/>
+            <span style="font-size:11px;">Est. Release: ${feature2Data.origin_timestamp || 'N/A'}</span>
+          </div>
+        `);
+        mapLayersGroup.current?.addLayer(origMarker);
+      }
+
+      // Feature 2 Forecast Horizons (+6h, +12h, +24h, +48h)
+      if (layers.drift && feature2Data?.forecast_json) {
+        const fcHorizons = ['6h', '12h', '24h', '48h'];
+        const forecastLatLngs: [number, number][] = [];
+        forecastLatLngs.push(currentData.center);
+
+        fcHorizons.forEach(hKey => {
+          const fc = feature2Data.forecast_json[hKey];
+          if (fc && fc.centroid_latitude && fc.centroid_longitude) {
+            forecastLatLngs.push([fc.centroid_latitude, fc.centroid_longitude]);
+            const spreadMeters = (fc.spread_radius_km || 3.0) * 1000;
+            const spreadCircle = L.circle([fc.centroid_latitude, fc.centroid_longitude], {
+              radius: spreadMeters,
+              color: '#2563EB',
+              fillColor: '#60A5FA',
+              fillOpacity: 0.15,
+              weight: 1,
+              dashArray: '3, 3'
+            });
+            spreadCircle.bindTooltip(`+${hKey} Spread: ${fc.spread_radius_km} km`, { direction: 'bottom' });
+            mapLayersGroup.current?.addLayer(spreadCircle);
+
+            const fcMarker = L.circleMarker([fc.centroid_latitude, fc.centroid_longitude], {
+              radius: 6,
+              color: '#1D4ED8',
+              fillColor: '#38BDF8',
+              fillOpacity: 1,
+              weight: 2
+            });
+            fcMarker.bindPopup(`
+              <div style="padding:8px; font-family:Inter,sans-serif;">
+                <strong style="color:#1D4ED8; font-size:12px;">+${hKey} DRIFT FORECAST (Feature 2)</strong><br/>
+                <span style="font-size:11px;">Coord: ${fc.centroid_latitude.toFixed(4)}°N, ${fc.centroid_longitude.toFixed(4)}°E</span><br/>
+                <span style="font-size:11px;">Spread Radius: ${fc.spread_radius_km} km</span><br/>
+                <span style="font-size:11px;">Active Particles: ${fc.active_particles || 100}</span><br/>
+                <span style="font-size:11px; color:#16A34A; font-weight:bold;">Quality: ${fc.quality || 'HIGH'}</span>
+              </div>
+            `);
+            mapLayersGroup.current?.addLayer(fcMarker);
+          }
+        });
+
+        if (forecastLatLngs.length > 1) {
+          const forecastLine = L.polyline(forecastLatLngs, {
+            color: '#2563EB',
+            weight: 2.5,
+            dashArray: '5, 5'
+          });
+          mapLayersGroup.current?.addLayer(forecastLine);
+        }
+      }
+
+      // 4. AIS Vessel Markers
+      if (layers.ais && currentData.vessels.length > 0) {
         currentData.vessels.forEach((v: any) => {
           const isTopSuspect = v.score >= 80;
           const vesselIcon = L.divIcon({
@@ -294,8 +418,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
           mapLayersGroup.current?.addLayer(marker);
         });
       }
+
+      // Auto-fit bounds to all active geographic entities
+      const allPoints: [number, number][] = [];
+      if (layers.spill && currentData.spillPolygon.length > 0) {
+        allPoints.push(...currentData.spillPolygon);
+      }
+      if (layers.drift && currentData.driftPath.length > 0) {
+        currentData.driftPath.forEach((p: any) => allPoints.push([p.lat, p.lng]));
+      }
+      if (layers.drift && feature2Data?.origin_latitude && feature2Data?.origin_longitude) {
+        allPoints.push([feature2Data.origin_latitude, feature2Data.origin_longitude]);
+      }
+      if (layers.drift && feature2Data?.forecast_json) {
+        ['6h', '12h', '24h', '48h'].forEach(h => {
+          const fc = feature2Data.forecast_json[h];
+          if (fc?.centroid_latitude && fc?.centroid_longitude) {
+            allPoints.push([fc.centroid_latitude, fc.centroid_longitude]);
+          }
+        });
+      }
+      if (layers.ais && currentData.vessels.length > 0) {
+        currentData.vessels.forEach(v => allPoints.push([v.lat, v.lng]));
+      }
+
+      if (allPoints.length > 0 && leafletMap.current) {
+        try {
+          const bounds = L.latLngBounds(allPoints);
+          leafletMap.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+        } catch (e) {}
+      }
     }
-  }, [activeCase, layers]);
+
+    // Force Leaflet container recalculation on layout mount
+    const timer = setTimeout(() => {
+      try {
+        leafletMap.current?.invalidateSize();
+      } catch (e) {}
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [dashboardData, layers, isLoading]);
 
   // Scrubber Animation Loop
   useEffect(() => {
@@ -308,9 +471,80 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
     return () => clearInterval(timer);
   }, [isPlayingScrubber]);
 
+  // Loading State - only on initial cold load before any dashboard data exists
+  if (isLoading && !dashboardData) {
+    return (
+      <div className="min-h-screen bg-gov-light flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <RefreshCw className="w-10 h-10 animate-spin text-navy-800 mx-auto" />
+          <p className="text-sm font-bold text-navy-800">Loading Incident Data...</p>
+          <p className="text-xs text-gov-muted">Fetching SAR slicks, drift forecast & vessel attribution</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error State
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gov-light flex items-center justify-center">
+        <div className="text-center space-y-4 max-w-md">
+          <AlertTriangle className="w-10 h-10 text-red-600 mx-auto" />
+          <p className="text-sm font-bold text-navy-800">Failed to Load Case Data</p>
+          <p className="text-xs text-gov-muted">{loadError}</p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button 
+              onClick={onOpenUpload}
+              className="px-4 py-2 bg-gov-blue text-white rounded-gov text-xs font-semibold hover:bg-blue-700 transition-all"
+            >
+              Run Pipeline / New Case
+            </button>
+            <button 
+              onClick={() => onNavigate('home')}
+              className="px-4 py-2 border border-navy-800 text-navy-800 rounded-gov text-xs font-semibold hover:bg-slate-100 transition-all"
+            >
+              Go Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty State (No cases in database)
+  if (!dashboardData || availableCases.length === 0) {
+    return (
+      <div className="min-h-screen bg-gov-light flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-md bg-white p-8 rounded-gov border border-gov-border shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-slate-100 text-navy-800 flex items-center justify-center mx-auto border border-gov-border">
+            <Anchor className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-navy-800">No Active Incident Cases</h3>
+          <p className="text-xs text-gov-muted leading-relaxed">
+            There are currently no active forensic cases. Upload satellite SAR/optical imagery and AIS telemetry to begin analysis.
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center pt-2">
+            <button 
+              onClick={onOpenUpload}
+              className="px-4 py-2 bg-navy-800 text-white rounded-gov text-xs font-semibold hover:bg-navy-900 transition-all shadow-xs"
+            >
+              Upload New Case
+            </button>
+            <button 
+              onClick={() => onNavigate('home')}
+              className="px-4 py-2 border border-gov-border text-navy-800 rounded-gov text-xs font-semibold hover:bg-gov-light transition-all"
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gov-light text-gov-text font-sans flex flex-col">
-      {/* 1. Official Government Dashboard Top Bar (Light Theme) */}
+      {/* 1. Dashboard Top Bar */}
       <header className="bg-white border-b border-gov-border px-4 py-2.5 flex items-center justify-between shadow-xs sticky top-0 z-40">
         <div className="flex items-center space-x-4">
           <button 
@@ -330,12 +564,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
             <span>•</span>
             <span className="text-emerald-700 font-medium flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-              2 Active Incident Grids
+              {availableCases.length} Active Incident{availableCases.length !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
 
-        {/* Top Bar Search & Filters (Light Theme Inputs) */}
         <div className="flex items-center space-x-3">
           <div className="relative w-64 sm:w-80">
             <Search className="w-4 h-4 text-gov-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -351,9 +584,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
             onChange={(e) => setActiveCase(e.target.value)}
             className="px-3 py-1.5 text-xs bg-white border border-gov-border rounded-gov font-bold text-navy-800 focus:outline-none focus:border-navy-800"
           >
-            <option value="SLK-2291">SLK-2291 (Gulf of Kutch)</option>
-            <option value="SLK-2288">SLK-2288 (Mumbai Offshore)</option>
+            {availableCases.length > 0 ? (
+              availableCases.map(c => (
+                <option key={c.id} value={c.id}>{c.id} ({c.location_name})</option>
+              ))
+            ) : (
+              <option value={activeCase}>{activeCase}</option>
+            )}
           </select>
+
+          <button
+            onClick={() => handleDeleteCase(activeCase)}
+            title={`Delete incident ${activeCase}`}
+            className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-200 rounded-gov transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
 
           <button 
             onClick={onOpenUpload}
@@ -367,20 +613,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
       {/* Main Dashboard Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         
-        {/* LEFT PANEL: SPILL DETAILS & SENSORS (Light Government Theme) */}
+        {/* LEFT PANEL: SPILL DETAILS */}
         <aside className="w-full lg:w-80 bg-white border-r border-gov-border p-4 space-y-5 flex-shrink-0 overflow-y-auto max-h-[40vh] lg:max-h-none shadow-xs">
-          {/* Header */}
           <div className="flex items-center justify-between border-b border-gov-border pb-3">
             <div>
               <span className="text-[10px] font-mono uppercase tracking-wider text-gov-muted">ACTIVE INCIDENT RECORD</span>
               <h2 className="text-lg font-extrabold text-navy-800 font-mono">{activeCase}</h2>
             </div>
-            <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-red-100 text-red-800 border border-red-300 rounded-gov">
+            <span className={`px-2 py-0.5 text-[10px] font-extrabold uppercase border rounded-gov ${
+              currentData.confidence.includes('HIGH') 
+                ? 'bg-red-100 text-red-800 border-red-300'
+                : currentData.confidence.includes('MEDIUM')
+                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                : 'bg-gray-100 text-gray-800 border-gray-300'
+            }`}>
               {currentData.confidence}
             </span>
           </div>
 
-          {/* Incident Telemetry Grid */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="bg-gov-light p-2.5 rounded-gov border border-gov-border">
               <span className="text-[10px] text-gov-muted uppercase font-semibold">SURFACE AREA</span>
@@ -400,7 +650,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
             </div>
           </div>
 
-          {/* Origin & Detection Metadata */}
           <div className="bg-gov-light p-3 rounded-gov border border-gov-border space-y-2 text-xs">
             <div className="flex justify-between border-b border-gov-border pb-1.5">
               <span className="text-gov-muted">Detection Time:</span>
@@ -416,17 +665,104 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
             </div>
           </div>
 
-          {/* Spill Contour Preview (Simplified Graphic) */}
+          {/* Feature 1 SAR Observed Coordinates */}
+          <div className="bg-emerald-50 p-3 rounded-gov border border-emerald-200 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <h5 className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                Feature 1 SAR Detection
+              </h5>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold">
+                {spillInfo?.geospatial_metadata_detected ? (spillInfo?.source_crs || 'GeoTIFF WGS84') : 'Observed Centroid'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-emerald-700">Observed Slick Centroid:</span>
+              <span className="font-mono font-bold text-emerald-950">
+                {spillInfo?.spill_latitude != null && spillInfo?.spill_longitude != null
+                  ? `${spillInfo.spill_latitude.toFixed(4)}°N, ${spillInfo.spill_longitude.toFixed(4)}°E`
+                  : dashboardData?.case?.center_latitude != null && dashboardData?.case?.center_longitude != null
+                  ? `${dashboardData.case.center_latitude.toFixed(4)}°N, ${dashboardData.case.center_longitude.toFixed(4)}°E`
+                  : '—'}
+              </span>
+            </div>
+          </div>
+
+          {/* Feature 2 Origin Info */}
+          {feature2Data && feature2Data.status === 'COMPLETED' && (
+            <div className="bg-blue-50 p-3 rounded-gov border border-blue-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <h5 className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Feature 2 Drift Hindcast</h5>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-100 text-blue-800 border border-blue-300 font-semibold">
+                  Backtracked Origin
+                </span>
+              </div>
+              {feature2Data.origin_latitude && (
+                <div className="flex justify-between">
+                  <span className="text-blue-600">Reconstructed Origin:</span>
+                  <span className="font-mono font-bold text-blue-900">
+                    {feature2Data.origin_latitude.toFixed(4)}°N, {feature2Data.origin_longitude?.toFixed(4)}°E
+                  </span>
+                </div>
+              )}
+              {feature2Data.origin_confidence_score && (
+                <div className="flex justify-between">
+                  <span className="text-blue-600">Confidence:</span>
+                  <span className="font-bold text-blue-900">{(feature2Data.origin_confidence_score * 100).toFixed(1)}%</span>
+                </div>
+              )}
+              {feature2Data.origin_uncertainty_radius_km && (
+                <div className="flex justify-between">
+                  <span className="text-blue-600">Uncertainty:</span>
+                  <span className="font-mono text-blue-900">±{feature2Data.origin_uncertainty_radius_km.toFixed(2)} km</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Feature 2 Trajectory & Dispersion Forecast */}
+          {feature2Data?.forecast_json && (
+            <div className="bg-indigo-50/70 p-3 rounded-gov border border-indigo-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between border-b border-indigo-200 pb-1">
+                <h5 className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider">
+                  Feature 2 Trajectory Forecast
+                </h5>
+                <span className="text-[9px] px-1.5 py-0.2 bg-indigo-200 text-indigo-900 font-mono rounded">
+                  48h Hydrodynamic
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {(['6h', '12h', '24h', '48h'] as const).map(h => {
+                  const fc = feature2Data.forecast_json[h];
+                  if (!fc) return null;
+                  return (
+                    <div key={h} className="bg-white/80 p-1.5 rounded border border-indigo-100 flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-indigo-900 font-mono w-7">+{h}</span>
+                        <span className="text-gov-muted text-[10px]">
+                          {fc.centroid_latitude ? `${fc.centroid_latitude.toFixed(2)}°N, ${fc.centroid_longitude.toFixed(2)}°E` : '—'}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-navy-800 text-[10px]">±{fc.spread_radius_km} km</span>
+                        <span className="text-[9px] text-emerald-700 ml-1 font-semibold">({fc.quality || 'HIGH'})</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Spill Contour Preview */}
           <div className="bg-white border border-gov-border rounded-gov p-3 text-center space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gov-muted">EXTRACTED SAR SPILL POLYGON</span>
             <div className="h-28 bg-slate-900 rounded border border-gov-border flex items-center justify-center relative overflow-hidden">
               <div className="w-32 h-16 bg-red-600/40 border-2 border-red-500 rounded-full rotate-12 flex items-center justify-center">
-                <span className="text-[9px] font-mono text-red-200">SLK-2291 Vector</span>
+                <span className="text-[9px] font-mono text-red-200">{activeCase} Vector</span>
               </div>
             </div>
           </div>
 
-          {/* Action Button: Export Forensic Summary Brief */}
           <button 
             onClick={() => setShowReportModal(true)}
             className="w-full py-2.5 px-3 bg-navy-800 hover:bg-navy-900 text-white rounded-gov text-xs font-semibold uppercase tracking-wider shadow-xs transition-colors flex items-center justify-center gap-2"
@@ -436,17 +772,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
           </button>
         </aside>
 
-        {/* CENTER: REAL SATELLITE MAP INTERFACE (Leaflet + Esri World Imagery) */}
-        <main className="flex-1 relative bg-slate-200 min-h-[500px]">
-          {/* Leaflet Map Div Container */}
-          <div ref={mapRef} className="w-full h-full min-h-[500px] z-0"></div>
+        {/* CENTER: MAP INTERFACE */}
+        <main className="flex-1 relative bg-slate-100 min-h-[550px] overflow-hidden">
+          <div ref={mapRef} className="absolute inset-0 w-full h-full z-0"></div>
 
-          {/* Floating Layers Control Panel (Light Theme) */}
-          <div className="absolute top-4 left-4 z-10 bg-white border border-gov-border rounded-gov p-3 shadow-md w-56 text-xs space-y-2">
+          {/* Floating Loading Indicator when switching incidents */}
+          {isLoading && (
+            <div className="absolute top-4 right-16 z-20 bg-white/95 backdrop-blur px-3 py-1.5 rounded-gov border border-gov-border shadow-md flex items-center gap-2 text-xs font-semibold text-navy-800">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-gov-blue" />
+              <span>Updating incident data...</span>
+            </div>
+          )}
+
+          {/* Floating Layers Control Panel */}
+          <div className="absolute top-4 left-4 z-10 bg-white border border-gov-border rounded-gov p-3 shadow-md w-64 text-xs space-y-2">
             <div className="flex items-center justify-between border-b border-gov-border pb-1.5 font-bold text-navy-800">
               <span className="flex items-center gap-1.5">
                 <Layers className="w-4 h-4" />
-                MAP LAYERS
+                INTEGRATED MAP LAYERS
               </span>
               <button 
                 onClick={() => setShowLayers(!showLayers)}
@@ -465,7 +808,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                     onChange={(e) => setLayers({ ...layers, spill: e.target.checked })}
                     className="rounded text-navy-800 focus:ring-navy-800"
                   />
-                  <span>Spill Layer (Red Polygon)</span>
+                  <span>Feature 1: SAR Slick Detection</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer text-gov-text font-medium">
                   <input 
@@ -474,7 +817,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                     onChange={(e) => setLayers({ ...layers, drift: e.target.checked })}
                     className="rounded text-navy-800 focus:ring-navy-800"
                   />
-                  <span>Drift Backtrack Vector</span>
+                  <span>Feature 2: Origin &amp; 48h Trajectory</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer text-gov-text font-medium">
                   <input 
@@ -483,13 +826,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                     onChange={(e) => setLayers({ ...layers, ais: e.target.checked })}
                     className="rounded text-navy-800 focus:ring-navy-800"
                   />
-                  <span>AIS Vessel Track Overlay</span>
+                  <span>AIS Vessel Attribution</span>
                 </label>
               </div>
             )}
           </div>
 
-          {/* Floating Map Legend (Bottom Right) */}
+          {/* Map Legend */}
           <div className="absolute bottom-16 right-4 z-10 bg-white border border-gov-border rounded-gov p-3 shadow-md text-xs space-y-1.5 text-gov-text">
             <span className="font-bold text-navy-800 text-[11px] block border-b border-gov-border pb-1">MAP LEGEND</span>
             <div className="flex items-center gap-2">
@@ -501,16 +844,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
               <span>Medium Confidence Slick</span>
             </div>
             <div className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-blue-500 border border-white rounded-xs"></span>
+              <span>Feature 2 Forecast Point</span>
+            </div>
+            <div className="flex items-center gap-2">
               <span className="w-3 h-3 bg-gov-blue border border-white rounded-xs"></span>
               <span>AIS Vessel Marker</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-0.5 bg-navy-800 inline-block"></span>
-              <span>Drift Backtrack Trajectory</span>
+              <span>Drift Trajectory</span>
             </div>
           </div>
 
-          {/* Floating Time Scrubber Bar (Bottom Center) */}
+          {/* Time Scrubber Bar */}
           <div className="absolute bottom-4 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 z-10 max-w-xl bg-white border border-gov-border rounded-gov p-3 shadow-md flex items-center space-x-3 text-xs">
             <button
               onClick={() => setIsPlayingScrubber(!isPlayingScrubber)}
@@ -539,7 +886,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
           </div>
         </main>
 
-        {/* RIGHT PANEL: SUSPECT VESSELS RANKED (Light Government Theme) */}
+        {/* RIGHT PANEL: SUSPECT VESSELS */}
         <aside className="w-full lg:w-96 bg-white border-l border-gov-border p-4 space-y-4 flex-shrink-0 overflow-y-auto max-h-[40vh] lg:max-h-none shadow-xs">
           <div className="flex items-center justify-between border-b border-gov-border pb-3">
             <div>
@@ -549,13 +896,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
               <p className="text-[11px] text-gov-muted">Correlated against drift backtrack &amp; origin window</p>
             </div>
             <span className="text-xs font-mono font-bold text-navy-800 bg-gov-light px-2 py-0.5 border border-gov-border rounded">
-              {currentData.vessels ? currentData.vessels.length : 0} Candidates
+              {currentData.vessels.length} Candidates
             </span>
           </div>
 
-          {/* Vessel Cards List */}
           <div className="space-y-3">
-            {currentData.vessels && currentData.vessels.map((vessel: any, idx: number) => {
+            {currentData.vessels.map((vessel: any, idx: number) => {
               const isTop = idx === 0;
               return (
                 <div 
@@ -585,7 +931,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                       </div>
                     </div>
 
-                    {/* Score Badge */}
                     <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-xs ${
                       isTop ? 'border-red-600 text-red-600 bg-red-50' : 'border-gov-blue text-gov-blue bg-blue-50'
                     }`}>
@@ -593,7 +938,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                     </div>
                   </div>
 
-                  {/* Progress Bars Breakdown */}
                   <div className="space-y-1.5 pt-2 border-t border-gov-border text-[10px]">
                     <div>
                       <div className="flex justify-between text-gov-muted mb-0.5">
@@ -616,7 +960,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                     </div>
                   </div>
 
-                  {/* Warning Flags */}
                   <div className="mt-2.5 flex flex-wrap gap-1">
                     {vessel.flags.map((f: string, fIdx: number) => (
                       <span 
@@ -634,9 +977,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                 </div>
               );
             })}
+
+            {currentData.vessels.length === 0 && (
+              <div className="text-center py-8 text-gov-muted text-xs">
+                No vessel attribution data available for this case.
+              </div>
+            )}
           </div>
 
-          {/* Fleet Analytics Toggle Section */}
+          {/* Fleet Analytics */}
           <div className="pt-4 border-t border-gov-border space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-navy-800 uppercase tracking-wider">
@@ -647,27 +996,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
 
             <div className="bg-gov-light p-3 rounded-gov border border-gov-border space-y-2 text-xs">
               <div className="flex justify-between py-1 border-b border-gov-border">
-                <span className="text-gov-muted">Detections This Week:</span>
-                <span className="font-bold text-navy-800">14 Spills</span>
+                <span className="text-gov-muted">Total Cases:</span>
+                <span className="font-bold text-navy-800">{availableCases.length} Cases</span>
               </div>
               <div className="flex justify-between py-1 border-b border-gov-border">
-                <span className="text-gov-muted">Attribution Accuracy:</span>
-                <span className="font-bold text-emerald-600">96.8%</span>
+                <span className="text-gov-muted">Feature 2 Status:</span>
+                <span className={`font-bold ${feature2Data?.status === 'COMPLETED' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {feature2Data?.status || 'N/A'} ({feature2Data?.processing_mode || '—'})
+                </span>
               </div>
               <div className="flex justify-between py-1">
-                <span className="text-gov-muted">Monitored Fleet Records:</span>
-                <span className="font-bold text-navy-800">18,600 Vessels</span>
+                <span className="text-gov-muted">Vessel Candidates:</span>
+                <span className="font-bold text-navy-800">{currentData.vessels.length} Vessels</span>
               </div>
             </div>
           </div>
         </aside>
       </div>
 
-      {/* PRINTABLE OFFICIAL INVESTIGATION SUMMARY REPORT MODAL */}
+      {/* REPORT MODAL */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-navy-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border-2 border-navy-800 rounded-gov shadow-2xl w-full max-w-3xl overflow-hidden">
-            {/* Modal Header */}
             <div className="bg-navy-800 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Shield className="w-5 h-5 text-amber-400" />
@@ -681,9 +1031,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
               </button>
             </div>
 
-            {/* Printable Document Body */}
             <div className="p-8 space-y-6 text-gov-text font-sans text-xs max-h-[70vh] overflow-y-auto border-b border-gov-border">
-              {/* Document Header Seal */}
               <div className="border-b-2 border-navy-800 pb-4 flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-navy-800">GOVERNMENT OF INDIA</h3>
@@ -694,11 +1042,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                   <span className="inline-block border border-navy-800 px-2 py-1 font-mono font-bold text-navy-800 text-[10px] bg-gov-light">
                     CONFIDENTIAL / COURT ADMISSIBLE
                   </span>
-                  <p className="text-[10px] text-gov-muted mt-1">Generated: 2026-09-03 08:24:10 IST</p>
+                  <p className="text-[10px] text-gov-muted mt-1">Generated: {new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC</p>
                 </div>
               </div>
 
-              {/* Section 1: Incident Metadata */}
               <div className="space-y-2">
                 <h4 className="font-bold text-navy-800 uppercase tracking-wider text-xs border-b border-gov-border pb-1">
                   1. Incident &amp; Satellite Detection Summary
@@ -717,36 +1064,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                 </div>
               </div>
 
-              {/* Section 2: Hydrodynamic Backtrack */}
               <div className="space-y-2">
                 <h4 className="font-bold text-navy-800 uppercase tracking-wider text-xs border-b border-gov-border pb-1">
-                  2. Hydrodynamic Drift Modeling Diagnostics
+                  2. Hydrodynamic Drift Modeling &amp; Feature 2 Analysis
                 </h4>
                 <p className="text-gov-muted leading-relaxed">
-                  Lagrangian hindcasting using INCOIS surface currents (0.82 m/s @ 214°) and ECMWF wind vectors established the discharge point at <strong>22° 28' 14" N, 69° 12' 40" E</strong> with a spatial tolerance of 850m.
+                  {feature2Data?.status === 'COMPLETED'
+                    ? `Feature 2 Lagrangian origin tracing identified the discharge point at ${feature2Data.origin_latitude?.toFixed(4)}°N, ${feature2Data.origin_longitude?.toFixed(4)}°E with ${feature2Data.origin_uncertainty_radius_km ? `spatial uncertainty of ${(feature2Data.origin_uncertainty_radius_km * 1000).toFixed(0)}m` : 'computed uncertainty'}.`
+                    : `Lagrangian hindcasting model established the discharge point at the computed origin coordinates with calculated spatial tolerance.`}
                 </p>
               </div>
 
-              {/* Section 3: Suspect Vessel Attribution */}
               <div className="space-y-2">
                 <h4 className="font-bold text-navy-800 uppercase tracking-wider text-xs border-b border-gov-border pb-1">
                   3. Primary Suspect Vessel Attribution
                 </h4>
-                <div className="bg-red-50 border border-red-200 p-3 rounded-gov space-y-1">
-                  <p><strong className="text-red-900">Rank #1 Suspect Vessel:</strong> MT Kaveri Star (MMSI: 419008421)</p>
-                  <p><strong className="text-red-900">Attribution Probability:</strong> 92% Confidence</p>
-                  <p><strong className="text-red-900">Correlated Anomalies:</strong> AIS Transmission Silence Gap (45 minutes during origin window), 4.2 knot speed drop, 18° course deviation.</p>
-                </div>
+                {currentData.vessels.length > 0 ? (
+                  <div className="bg-red-50 border border-red-200 p-3 rounded-gov space-y-1">
+                    <p><strong className="text-red-900">Rank #1 Suspect Vessel:</strong> {currentData.vessels[0].name} (MMSI: {currentData.vessels[0].mmsi})</p>
+                    <p><strong className="text-red-900">Attribution Probability:</strong> {currentData.vessels[0].score}% Confidence</p>
+                    <p><strong className="text-red-900">Correlated Anomalies:</strong> {currentData.vessels[0].flags.join(', ')}</p>
+                  </div>
+                ) : (
+                  <p className="text-gov-muted">No vessel attribution data available.</p>
+                )}
               </div>
 
-              {/* Verification Seal Line */}
               <div className="pt-6 border-t border-gov-border flex justify-between items-center text-[10px] font-mono text-gov-muted">
                 <span>DIGITAL SIGNATURE: SHA-256 (3f9a72...e81c)</span>
                 <span>DIRECTORATE ENFORCEMENT STAMP</span>
               </div>
             </div>
 
-            {/* Modal Actions */}
             <div className="bg-gov-light px-6 py-4 flex justify-between items-center">
               <span className="text-xs text-gov-muted">Ready for Indian Coast Guard Pollution Response Unit</span>
               <div className="flex space-x-3">

@@ -1,0 +1,30 @@
+# Environment variables / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Backend generated/local data
+backend/slicktrace.db
+backend/uploads/
+backend/outputs/
+backend/data_cache/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swomodels/oil_spill_detection_model.pth.zip

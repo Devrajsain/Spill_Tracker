@@ -13,7 +13,7 @@ import { Dashboard } from './components/Dashboard';
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'home' | 'dashboard' | 'workflow'>('home');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
-  const [activeCaseId, setActiveCaseId] = useState<string>('SLK-2291');
+  const [activeCaseId, setActiveCaseId] = useState<string>('');
 
   const handleNavigate = (view: 'home' | 'dashboard' | 'workflow') => {
     setCurrentView(view);
@@ -27,36 +27,43 @@ export const App: React.FC = () => {
 
   if (currentView === 'dashboard') {
     return (
-      <Dashboard
-        onNavigate={handleNavigate}
-        onOpenUpload={() => setIsUploadModalOpen(true)}
-        selectedCaseId={activeCaseId}
-      />
+      <>
+        <Dashboard
+          onNavigate={handleNavigate}
+          onOpenUpload={() => setIsUploadModalOpen(true)}
+          selectedCaseId={activeCaseId}
+        />
+        <WorkflowUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onSelectCase={handleSelectCaseAndLaunch}
+        />
+      </>
     );
   }
 
   return (
     <div className="min-h-screen bg-white text-gov-text font-sans flex flex-col selection:bg-navy-800 selection:text-white">
       {/* Header Navigation */}
-      <Header 
-        currentView={currentView} 
-        onNavigate={handleNavigate} 
-        onOpenUpload={() => setIsUploadModalOpen(true)} 
+      <Header
+        currentView={currentView}
+        onNavigate={handleNavigate}
+        onOpenUpload={() => setIsUploadModalOpen(true)}
       />
 
       {/* View Content */}
       <main className="flex-1">
         {currentView === 'home' && (
           <>
-            <HeroSection 
-              onNavigate={handleNavigate} 
-              onOpenUpload={() => setIsUploadModalOpen(true)} 
+            <HeroSection
+              onNavigate={handleNavigate}
+              onOpenUpload={() => setIsUploadModalOpen(true)}
             />
             <MissionBanner />
             <CoreCapabilities onNavigate={handleNavigate} />
-            <OperationalWorkflow 
-              onNavigate={handleNavigate} 
-              onOpenUpload={() => setIsUploadModalOpen(true)} 
+            <OperationalWorkflow
+              onNavigate={handleNavigate}
+              onOpenUpload={() => setIsUploadModalOpen(true)}
             />
             <OperationalStatistics />
             <WhySlickTrace />
@@ -65,9 +72,9 @@ export const App: React.FC = () => {
 
         {currentView === 'workflow' && (
           <div className="py-8">
-            <OperationalWorkflow 
-              onNavigate={handleNavigate} 
-              onOpenUpload={() => setIsUploadModalOpen(true)} 
+            <OperationalWorkflow
+              onNavigate={handleNavigate}
+              onOpenUpload={() => setIsUploadModalOpen(true)}
             />
             <div className="max-w-7xl mx-auto px-4 py-8">
               <div className="bg-gov-light border border-gov-border rounded-gov p-8 text-center space-y-4">
@@ -88,13 +95,13 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <Footer 
-        onNavigate={handleNavigate} 
-        onOpenUpload={() => setIsUploadModalOpen(true)} 
+      <Footer
+        onNavigate={handleNavigate}
+        onOpenUpload={() => setIsUploadModalOpen(true)}
       />
 
       {/* Interactive Workflow Modal */}
-      <WorkflowUploadModal 
+      <WorkflowUploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onSelectCase={handleSelectCaseAndLaunch}

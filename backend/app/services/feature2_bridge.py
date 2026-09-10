@@ -123,7 +123,12 @@ def feature1_to_feature2_geojson(
         raise ValueError("Feature 1 detection output must contain a valid polygon_geojson dictionary.")
 
     # 4. Resolve centroid
-    if center_lat is not None and center_lon is not None:
+    if detection_output.get("spill_latitude") is not None and detection_output.get("spill_longitude") is not None:
+        centroid = {
+            "latitude": float(detection_output["spill_latitude"]),
+            "longitude": float(detection_output["spill_longitude"]),
+        }
+    elif center_lat is not None and center_lon is not None:
         centroid = {"latitude": float(center_lat), "longitude": float(center_lon)}
     elif "center_latitude" in detection_output and "center_longitude" in detection_output:
         centroid = {
@@ -148,11 +153,17 @@ def feature1_to_feature2_geojson(
     )
 
     # 6. Assemble properties preserving metadata
+    perimeter_km = (
+        detection_output.get("perimeter_km") or
+        0.0
+    )
+
     properties: Dict[str, Any] = {
         "spill_id": str(spill_id),
         "observation_time": observation_time_iso,
         "centroid": centroid,
         "area_sq_km": float(area_sq_km),
+        "perimeter_km": float(perimeter_km),
     }
 
     # Pass through additional detection metadata if available

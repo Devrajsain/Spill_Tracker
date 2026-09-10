@@ -13,6 +13,12 @@ numpy>=1.26.3
 scipy>=1.12.0
 requests>=2.31.0
 
+# Feature 1 - Deep Learning Oil Spill Detection Model (optional: falls back to synthetic if missing)
+# torch>=2.1.0
+# torchvision>=0.16.0
+rasterio>=1.4.0
+pyproj>=3.7.0
+
 # Feature 2 - Oil Spill Origin Tracing & Trajectory Forecasting
 python-dateutil>=2.9.0
 python-dotenv>=1.0.0
@@ -22,3 +28,4 @@ cdsapi>=0.7.0
 copernicusmarine>=2.0.0
 httpx>=0.27.0
 pytest>=8.0.0
+
