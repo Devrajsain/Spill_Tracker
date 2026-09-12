@@ -38,6 +38,31 @@ export interface SpillResponse {
   drift_trajectory_json: any[];
 }
 
+export interface RawEvidenceMetrics {
+  closest_approach_distance_km: number;
+  closest_approach_time?: string | null;
+  time_offset_minutes: number;
+  inside_uncertainty_zone: boolean;
+  position_at_origin?: { latitude: number; longitude: number; sog?: number; cog?: number; exact?: boolean } | null;
+  sog_at_origin_kn?: number | null;
+  baseline_median_sog_kn?: number | null;
+  event_median_sog_kn?: number | null;
+  speed_reduction_ratio?: number | null;
+  minimum_sog_kn?: number | null;
+  course_change_degrees?: number | null;
+  dwell_minutes_inside_zone: number;
+  dwell_minutes_near_zone: number;
+  gap_duration_minutes?: number | null;
+  gap_distance_to_origin_km?: number | null;
+  gap_time_offset_minutes?: number | null;
+  gap_relevance_score?: number | null;
+  approach_bearing_deg?: number | null;
+  departure_bearing_deg?: number | null;
+  reverse_drift_bearing_deg?: number | null;
+  approach_alignment_deg?: number | null;
+  departure_alignment_deg?: number | null;
+}
+
 export interface VesselResponse {
   id: string;
   case_id: string;
@@ -54,6 +79,21 @@ export interface VesselResponse {
   current_longitude: number;
   heading_deg: number;
   speed_kts: string;
+
+  // Feature 3 Extended Evidence Attributes
+  composite_score?: number;
+  risk_class?: 'VERY HIGH' | 'HIGH' | 'MODERATE' | 'LOW' | string;
+  scoring_mode?: string;
+  origin_presence_score?: number;
+  behavior_anomaly_score?: number;
+  dwell_time_score?: number;
+  ais_gap_score?: number;
+  approach_departure_score?: number | null;
+  evidence_metrics?: RawEvidenceMetrics | any;
+  quality_flags?: string[];
+  trajectory_geojson?: any;
+  explanation?: string;
+  created_at?: string;
 }
 
 export interface Feature2ResultResponse {
@@ -71,6 +111,7 @@ export interface Feature2ResultResponse {
   forecast_json: any;
   geojson_feature_collection: any;
   pipeline_response_json: any;
+  drift_trajectory?: any[];
   error_message: string | null;
   created_at: string;
 }
@@ -182,9 +223,16 @@ export async function getCaseSpill(caseId: string): Promise<SpillResponse> {
   return fetchJSON<SpillResponse>(`${API_BASE}/cases/${caseId}/spill`);
 }
 
-/** Get vessel attribution records for a case. */
-export async function getCaseVessels(caseId: string): Promise<VesselResponse[]> {
-  return fetchJSON<VesselResponse[]>(`${API_BASE}/cases/${caseId}/vessels`);
+/** Get vessel attribution records for a case with deterministic sorting. */
+export async function getCaseVessels(caseId: string, sort: string = 'score', limit?: number): Promise<VesselResponse[]> {
+  const params = new URLSearchParams({ sort });
+  if (limit) params.append('limit', String(limit));
+  return fetchJSON<VesselResponse[]>(`${API_BASE}/cases/${caseId}/vessels?${params.toString()}`);
+}
+
+/** Get a single vessel attribution record including full forensic explanation and evidence metrics. */
+export async function getCaseVesselByMmsi(caseId: string, mmsi: string): Promise<VesselResponse> {
+  return fetchJSON<VesselResponse>(`${API_BASE}/cases/${caseId}/vessels/${mmsi}`);
 }
 
 /** Get Feature 2 results for a case. */

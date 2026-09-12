@@ -124,6 +124,7 @@ def get_wind_provider(settings: Feature2Settings = default_settings) -> Environm
         return GFSWindProvider(
             config=gfs_cfg,
             data_path=settings.data.gfs_data_path,
+            mode="historical",
         )
     else:
         return MockWindProvider()
@@ -143,6 +144,7 @@ def get_forecast_wind_provider(settings: Feature2Settings = default_settings) ->
             config=gfs_cfg,
             data_path=settings.data.gfs_data_path,
             settings=settings,
+            mode="forecast",
         )
     elif provider_type == "local_netcdf" and settings.data.local_wind_filepath:
         mapping = VariableMapping(

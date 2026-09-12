@@ -4,7 +4,7 @@ Input data models representing SAR slick detections emitted by Feature 1.
 
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Union
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CentroidCoordinates(BaseModel):
@@ -78,8 +78,8 @@ class SlickDetectionInput(BaseModel):
         description="Optional auxiliary metadata (sensor name, confidence, wind speed at capture)."
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "spill_id": "SAR-SPILL-20260902-001",
                 "observation_time": "2026-09-02T12:00:00Z",
@@ -107,3 +107,4 @@ class SlickDetectionInput(BaseModel):
                 }
             }
         }
+    )

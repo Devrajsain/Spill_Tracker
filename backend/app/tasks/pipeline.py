@@ -12,6 +12,7 @@ Feature 1 output is automatically converted and fed into Feature 2 via the
 feature2_bridge service. Feature 2 results are included in the summary.
 """
 
+import os
 import time
 import logging
 from typing import Optional
@@ -144,10 +145,10 @@ def _run_feature2_pipeline(
         }
 
     except Exception as e:
-        logger.warning(f"Feature 2 pipeline failed, falling back to mock drift: {e}")
+        logger.error(f"Feature 2 pipeline failed for case {case_id}: {e}", exc_info=True)
         return {
-            "status": "FAILED",
-            "processing_mode": "mock",
+            "status": "DATA_UNAVAILABLE",
+            "processing_mode": "live",
             "error": str(e),
             "origin": {},
             "forecast": {},
@@ -216,9 +217,16 @@ def execute_5step_pipeline(
     )
     feature2_res = _run_feature2_pipeline(case_id, spill_res, effective_lat, effective_lon)
 
-    # Use Feature 2 origin if available, otherwise fall back to mock drift
-    if feature2_res["status"] == "COMPLETED" and feature2_res["origin"].get("origin_latitude"):
+    # Check if mock mode is explicitly requested
+    is_explicit_mock = (
+        os.getenv("FEATURE2_ENVIRONMENT", "").lower() == "testing"
+        or os.getenv("FEATURE2_CURRENTS_PROVIDER", "").lower() == "mock"
+    )
+
+    # Use Feature 2 origin if available, otherwise handle explicit mock or data unavailable
+    if feature2_res.get("status") == "COMPLETED" and feature2_res.get("origin", {}).get("origin_latitude"):
         drift_res = {
+            "status": "COMPLETED",
             "origin_latitude": feature2_res["origin"]["origin_latitude"],
             "origin_longitude": feature2_res["origin"]["origin_longitude"],
             "origin_timestamp": feature2_res["origin"].get("origin_timestamp", ""),
@@ -247,25 +255,82 @@ def execute_5step_pipeline(
                     "lon": fc["centroid_longitude"],
                 })
         drift_res["drift_trajectory"] = trajectory
+    elif is_explicit_mock:
+        # Fall back to simple mock drift ONLY in explicit mock mode
+        logger.info(
+            f"Case {case_id}: Explicit mock mode active (FEATURE2_ENVIRONMENT=testing or FEATURE2_CURRENTS_PROVIDER=mock). "
+            "Running synthetic drift hindcast model."
+        )
+        drift_res = run_drift_hindcast_model(
+            effective_lat,
+            effective_lon,
+            detection_timestamp=spill_res.get("detection_timestamp"),
+        )
     else:
-        # Fall back to simple mock drift
-        drift_res = run_drift_hindcast_model(effective_lat, effective_lon)
+        # Real mode and Feature 2 failed or data unavailable: fail cleanly without synthetic drift
+        logger.warning(
+            f"Case {case_id}: Real environmental data is unavailable for Feature 2. "
+            "Failing cleanly without synthetic/mock fallback."
+        )
+        drift_res = {
+            "status": "DATA_UNAVAILABLE",
+            "origin_latitude": None,
+            "origin_longitude": None,
+            "origin_timestamp": None,
+            "drift_trajectory": [],
+            "error": feature2_res.get("error", "Environmental data unavailable"),
+        }
 
     # Step 4: AIS Vessel Attribution
-    vessels_res = run_vessel_attribution_model(
-        csv_path,
-        drift_res["origin_latitude"],
-        drift_res["origin_longitude"],
-    )
+    # Requirement 4: When Feature 2 returns DATA_UNAVAILABLE in real mode, Feature 3 attribution must NOT execute an attribution calculation.
+    # It should report that environmental origin context is unavailable.
+    if drift_res.get("status") == "DATA_UNAVAILABLE" or drift_res.get("origin_latitude") is None:
+        logger.warning(
+            f"Case {case_id}: Skipping Feature 3 vessel attribution because environmental origin context is unavailable."
+        )
+        vessels_res = []
+        attribution_status = "SKIPPED_ENVIRONMENT_DATA_UNAVAILABLE"
+        attribution_message = "Feature 3 attribution skipped: Environmental origin context is unavailable from Feature 2."
+    else:
+        f2_ctx = None
+        if feature2_res.get("status") == "COMPLETED" and feature2_res.get("origin", {}).get("origin_latitude"):
+            try:
+                from app.feature3.adapter import extract_feature2_context
+                f2_ctx = extract_feature2_context(
+                    feature2_data=feature2_res,
+                    spill_data=spill_res,
+                    drift_data=drift_res,
+                    spill_id=case_id,
+                )
+            except Exception as e:
+                logger.warning(f"Could not build Feature2 context for attribution: {e}")
+
+        # Explicit test/demo execution detection - never silently substitute in real production cases
+        is_test_or_demo = bool(
+            case_id and ("TEST" in case_id.upper() or "DEMO" in case_id.upper() or "SAMPLE" in case_id.upper())
+        )
+
+        vessels_res = run_vessel_attribution_model(
+            csv_path=csv_path,
+            origin_lat=drift_res["origin_latitude"],
+            origin_lon=drift_res["origin_longitude"],
+            feature2_context=f2_ctx,
+            allow_demo_fallback=is_test_or_demo,
+        )
+        attribution_status = "COMPLETED" if vessels_res else "NO_VESSELS_FOUND"
+        attribution_message = None
 
     # Step 5: Summary Package
+    summary_status = "DATA_UNAVAILABLE" if drift_res.get("status") == "DATA_UNAVAILABLE" else "COMPLETED"
     summary = {
         "case_id": case_id,
-        "status": "COMPLETED",
+        "status": summary_status,
         "spill": spill_res,
         "drift": drift_res,
         "vessels": vessels_res,
         "feature2": feature2_res,
+        "attribution_status": attribution_status,
+        "attribution_message": attribution_message,
         "processed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
     }
 

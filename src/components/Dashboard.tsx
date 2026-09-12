@@ -2,10 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Shield, Layers, Play, Pause, ChevronRight, AlertTriangle, 
   MapPin, Anchor, Eye, FileText, Download, Filter, RefreshCw, BarChart2,
-  Calendar, CheckCircle, Info, ChevronDown, Printer, X, Trash2
+  Calendar, CheckCircle, Info, ChevronDown, Printer, X, Trash2,
+  Compass, Activity
 } from 'lucide-react';
 import L from 'leaflet';
-import { loadDashboardData, listCases, deleteCase, DashboardCaseData, CaseResponse } from '../services/api';
+import { loadDashboardData, listCases, deleteCase, DashboardCaseData, CaseResponse, VesselResponse } from '../services/api';
+import { ExplainabilityModal } from './ExplainabilityModal';
+
+const VESSEL_TRACK_COLORS = [
+  '#2563EB', // Royal Blue
+  '#7C3AED', // Violet
+  '#0D9488', // Teal
+  '#D97706', // Amber
+  '#4F46E5', // Indigo
+  '#0284C7', // Sky Blue
+  '#9333EA', // Purple
+  '#059669', // Emerald
+  '#EA580C', // Burnt Orange
+  '#64748B', // Slate
+];
 
 interface DashboardProps {
   onNavigate: (view: 'home' | 'dashboard' | 'workflow') => void;
@@ -21,6 +36,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
   const [scrubberTime, setScrubberTime] = useState<number>(0);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   const [selectedVessel, setSelectedVessel] = useState<string>('');
+  const [selectedVesselMmsi, setSelectedVesselMmsi] = useState<string>('');
+  const [explainVessel, setExplainVessel] = useState<VesselResponse | null>(null);
+  const [showExplainModal, setShowExplainModal] = useState<boolean>(false);
 
   // Live data state
   const [dashboardData, setDashboardData] = useState<DashboardCaseData | null>(null);
@@ -85,6 +103,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
         setDashboardData(data);
         if (data.vessels.length > 0) {
           setSelectedVessel(data.vessels[0].name);
+          setSelectedVesselMmsi(data.vessels[0].mmsi);
         }
         setIsLoading(false);
       })
@@ -131,8 +150,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
 
   // Derive display data from backend response
   const summary = dashboardData?.case?.summary_json;
-  const spillInfo = summary?.spill;
-  const driftInfo = summary?.drift;
+  const spillInfo = summary?.spill || dashboardData?.spill;
+  const driftInfo = summary?.drift || (dashboardData?.feature2 ? {
+    origin_latitude: dashboardData.feature2.origin_latitude,
+    origin_longitude: dashboardData.feature2.origin_longitude,
+    origin_timestamp: dashboardData.feature2.origin_timestamp,
+    drift_trajectory: dashboardData.feature2.drift_trajectory || []
+  } : null);
   const vessels = dashboardData?.vessels || [];
   const feature2Data = dashboardData?.feature2;
 
@@ -140,17 +164,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
     title: dashboardData?.case?.name || activeCase,
     location: dashboardData?.case?.location_name || '',
     confidence: spillInfo?.confidence_label || 'PENDING',
-    area: spillInfo ? `${spillInfo.area_km2} km²` : '—',
-    length: spillInfo ? `${spillInfo.length_km} km` : '—',
-    width: spillInfo ? `${spillInfo.width_km} km` : '—',
-    estVolume: spillInfo ? `${spillInfo.est_volume_bbl.toLocaleString()} bbl` : '—',
+    area: spillInfo && spillInfo.area_km2 > 0 ? `${spillInfo.area_km2} km²` : '—',
+    length: spillInfo && spillInfo.length_km > 0 ? `${spillInfo.length_km} km` : '—',
+    width: spillInfo && spillInfo.width_km > 0 ? `${spillInfo.width_km} km` : '—',
+    estVolume: spillInfo && spillInfo.est_volume_bbl > 0 ? `${spillInfo.est_volume_bbl.toLocaleString()} bbl` : '—',
     estAge: '—',
-    originTime: driftInfo?.origin_timestamp || '—',
+    originTime: driftInfo?.origin_timestamp || feature2Data?.origin_timestamp || '—',
     detectionTime: spillInfo?.detection_timestamp || '—',
     source: spillInfo?.satellite_source || '—',
     center: [
-      dashboardData?.case?.center_latitude || 22.47,
-      dashboardData?.case?.center_longitude || 69.21,
+      (spillInfo?.spill_latitude && spillInfo.spill_latitude !== 0) ? spillInfo.spill_latitude : (dashboardData?.case?.center_latitude && dashboardData.case.center_latitude !== 0 ? dashboardData.case.center_latitude : 22.47),
+      (spillInfo?.spill_longitude && spillInfo.spill_longitude !== 0) ? spillInfo.spill_longitude : (dashboardData?.case?.center_longitude && dashboardData.case.center_longitude !== 0 ? dashboardData.case.center_longitude : 69.21),
     ] as [number, number],
     zoom: 10,
     spillPolygon: spillInfo?.polygon_geojson?.coordinates?.[0]?.map((c: number[]) => [c[1], c[0]]) || [],
@@ -160,16 +184,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
       lng: pt.lon,
       text: pt.time,
     })),
-    vessels: vessels.map(v => ({
+    vessels: vessels.map((v, idx) => ({
+      raw: v,
       name: v.name,
       mmsi: v.mmsi,
       type: v.type,
       flag: v.flag,
-      score: v.overall_score,
+      score: Math.round(v.composite_score ?? v.overall_score),
+      compositeScore: v.composite_score ?? v.overall_score,
+      riskClass: v.risk_class || (v.overall_score >= 80 ? 'VERY HIGH' : v.overall_score >= 60 ? 'HIGH' : v.overall_score >= 30 ? 'MODERATE' : 'LOW'),
+      scoringMode: v.scoring_mode || 'UNCERTAINTY_AWARE_5_FACTOR',
+      originPresence: v.origin_presence_score ?? v.proximity_score,
+      behaviorAnomaly: v.behavior_anomaly_score ?? v.behavioral_score,
+      dwellTime: v.dwell_time_score ?? 0,
+      aisGap: v.ais_gap_score ?? 0,
+      approachDeparture: v.approach_departure_score,
       proximity: v.proximity_score,
       trajectory: v.trajectory_score,
       behavioral: v.behavioral_score,
       flags: v.warning_flags || [],
+      qualityFlags: v.quality_flags || [],
+      evidence: v.evidence_metrics,
+      explanation: v.explanation,
+      trajectoryGeojson: v.trajectory_geojson,
+      color: VESSEL_TRACK_COLORS[idx % VESSEL_TRACK_COLORS.length],
       lat: v.current_latitude,
       lng: v.current_longitude,
       heading: v.heading_deg,
@@ -218,18 +256,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
           attributionControl: false
         });
 
-        // Use CartoDB Voyager basemap with authenticated API key
-        const cartoApiKey = (((import.meta as any).env?.VITE_CARTO_API_KEY as string) || '').trim();
-        const cartoTileUrl = cartoApiKey
-          ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoApiKey)}`
-          : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-
         const baseTileLayer = L.tileLayer(
-          cartoTileUrl,
+          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
           {
             maxZoom: 19,
-            subdomains: 'abcd',
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
           }
         );
         baseTileLayer.addTo(leafletMap.current);
@@ -378,41 +409,125 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
         }
       }
 
-      // 4. AIS Vessel Markers
+      // 4. AIS Vessel Trajectories, Gaps & Markers
       if (layers.ais && currentData.vessels.length > 0) {
         currentData.vessels.forEach((v: any) => {
-          const isTopSuspect = v.score >= 80;
+          const isSelected = selectedVesselMmsi === v.mmsi || selectedVessel === v.name;
+          const trackColor = v.color;
+
+          // Render trajectory GeoJSON if available
+          if (v.trajectoryGeojson && v.trajectoryGeojson.features) {
+            v.trajectoryGeojson.features.forEach((feat: any) => {
+              if (feat.properties?.feature_type === 'trajectory' && feat.geometry?.coordinates) {
+                const latLngs = feat.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+                if (latLngs.length > 1) {
+                  // If selected, add prominent outline halo
+                  if (isSelected) {
+                    const halo = L.polyline(latLngs, {
+                      color: '#FFFFFF',
+                      weight: 7,
+                      opacity: 0.9,
+                      lineCap: 'round',
+                    });
+                    mapLayersGroup.current?.addLayer(halo);
+                  }
+
+                  const trackLine = L.polyline(latLngs, {
+                    color: trackColor,
+                    weight: isSelected ? 4 : 2.5,
+                    opacity: isSelected ? 1.0 : 0.65,
+                    lineCap: 'round',
+                  });
+                  trackLine.bindTooltip(`${v.name} (MMSI: ${v.mmsi}) — Track`, { sticky: true });
+                  trackLine.on('click', () => {
+                    setSelectedVessel(v.name);
+                    setSelectedVesselMmsi(v.mmsi);
+                  });
+                  mapLayersGroup.current?.addLayer(trackLine);
+                }
+              } else if (feat.properties?.feature_type === 'ais_gap' && feat.geometry?.coordinates) {
+                const gapLatLngs = feat.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+                if (gapLatLngs.length > 1) {
+                  const gapLine = L.polyline(gapLatLngs, {
+                    color: '#DC2626',
+                    weight: 2.5,
+                    dashArray: '6, 6',
+                    opacity: 0.9,
+                  });
+                  gapLine.bindTooltip(`AIS Gap: ${feat.properties.duration_minutes} min (MMSI: ${v.mmsi})`, { sticky: true });
+                  mapLayersGroup.current?.addLayer(gapLine);
+                }
+              } else if (feat.properties?.feature_type === 'closest_approach' && feat.geometry?.coordinates) {
+                const caMarker = L.circleMarker([feat.geometry.coordinates[1], feat.geometry.coordinates[0]], {
+                  radius: isSelected ? 8 : 6,
+                  color: '#7F1D1D',
+                  fillColor: '#EF4444',
+                  fillOpacity: 0.9,
+                  weight: 2,
+                });
+                caMarker.bindTooltip(`Closest Approach: ${feat.properties.distance_km} km (${v.name})`, { direction: 'top' });
+                mapLayersGroup.current?.addLayer(caMarker);
+              } else if (feat.properties?.feature_type === 'interpolated_origin' && feat.geometry?.coordinates) {
+                const ioMarker = L.circleMarker([feat.geometry.coordinates[1], feat.geometry.coordinates[0]], {
+                  radius: isSelected ? 7 : 5,
+                  color: '#312E81',
+                  fillColor: '#6366F1',
+                  fillOpacity: 0.9,
+                  weight: 2,
+                });
+                ioMarker.bindTooltip(`Position at T_origin (${v.name})`, { direction: 'top' });
+                mapLayersGroup.current?.addLayer(ioMarker);
+              }
+            });
+          }
+
+          // Vessel Position Marker
           const vesselIcon = L.divIcon({
             className: 'custom-vessel-icon',
             html: `
               <div style="
-                width: 24px; 
-                height: 24px; 
-                background: ${isTopSuspect ? '#DC2626' : '#1A3C6E'}; 
-                border: 2px solid #FFFFFF; 
+                width: ${isSelected ? '28px' : '22px'}; 
+                height: ${isSelected ? '28px' : '22px'}; 
+                background: ${trackColor}; 
+                border: ${isSelected ? '3px solid #FFFFFF' : '2px solid #FFFFFF'}; 
                 border-radius: 4px; 
                 display: flex; 
                 align-items: center; 
                 justify-content: center; 
                 color: #FFFFFF; 
                 font-weight: bold; 
-                font-size: 11px;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                font-size: ${isSelected ? '12px' : '10px'};
+                box-shadow: ${isSelected ? '0 0 0 3px ' + trackColor + ', 0 4px 10px rgba(0,0,0,0.4)' : '0 2px 6px rgba(0,0,0,0.3)'};
+                transition: all 0.2s ease;
               ">
                 ⚓
               </div>
             `,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+            iconSize: [isSelected ? 28 : 22, isSelected ? 28 : 22],
+            iconAnchor: [isSelected ? 14 : 11, isSelected ? 14 : 11]
           });
 
           const marker = L.marker([v.lat, v.lng], { icon: vesselIcon });
+          marker.on('click', () => {
+            setSelectedVessel(v.name);
+            setSelectedVesselMmsi(v.mmsi);
+          });
           marker.bindPopup(`
-            <div style="padding:10px; font-family:Inter,sans-serif; min-width:180px;">
-              <strong style="color:#1A2433; font-size:13px;">${v.name}</strong><br/>
+            <div style="padding:10px; font-family:Inter,sans-serif; min-width:200px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                <strong style="color:#1A2433; font-size:13px;">${v.name}</strong>
+                <span style="font-size:10px; font-weight:bold; padding:2px 6px; border-radius:3px; background:#F1F5F9; color:#1E293B;">
+                  ${v.riskClass}
+                </span>
+              </div>
               <span style="font-size:11px; color:#5A6472;">MMSI: ${v.mmsi} (${v.type})</span><br/>
-              <span style="font-size:11px; font-weight:bold; color:${isTopSuspect ? '#DC2626' : '#1A3C6E'};">ATTRIBUTION SCORE: ${v.score}%</span><br/>
+              <span style="font-size:11px; font-weight:bold; color:${trackColor};">
+                CORRELATION SCORE: ${v.score}/100
+              </span><br/>
               <div style="margin-top:4px; font-size:10px; color:#5A6472;">Speed: ${v.speed} | Heading: ${v.heading}°</div>
+              <div style="margin-top:4px; font-size:9px; color:#64748B; font-style:italic;">
+                *Evidence ranking score; does not establish causation or legal responsibility.
+              </div>
             </div>
           `);
           mapLayersGroup.current?.addLayer(marker);
@@ -880,20 +995,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
               className="w-full accent-navy-800 cursor-pointer"
             />
 
-            <span className="font-mono font-bold text-navy-800 text-[10px] uppercase bg-gov-light border border-gov-border px-2 py-0.5 rounded">
+            <span className="font-mono font-bold text-navy-800 text-[10px] uppercase bg-gov-light border border-gov-border px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
               DRIFT TIME SIM
             </span>
           </div>
         </main>
 
-        {/* RIGHT PANEL: SUSPECT VESSELS */}
+        {/* RIGHT PANEL: SUSPECT VESSELS (FEATURE 3 ATTRIBUTION) */}
         <aside className="w-full lg:w-96 bg-white border-l border-gov-border p-4 space-y-4 flex-shrink-0 overflow-y-auto max-h-[40vh] lg:max-h-none shadow-xs">
           <div className="flex items-center justify-between border-b border-gov-border pb-3">
             <div>
               <h3 className="text-sm font-bold text-navy-800 uppercase tracking-wider">
-                Suspect Vessels (Ranked)
+                Vessel Attribution (Feature 3)
               </h3>
-              <p className="text-[11px] text-gov-muted">Correlated against drift backtrack &amp; origin window</p>
+              <p className="text-[11px] text-gov-muted">Multi-factor evidence correlation ranking (0–100)</p>
             </div>
             <span className="text-xs font-mono font-bold text-navy-800 bg-gov-light px-2 py-0.5 border border-gov-border rounded">
               {currentData.vessels.length} Candidates
@@ -902,27 +1017,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
 
           <div className="space-y-3">
             {currentData.vessels.map((vessel: any, idx: number) => {
-              const isTop = idx === 0;
+              const isSelected = selectedVesselMmsi === vessel.mmsi || selectedVessel === vessel.name;
+              const ev = vessel.evidence || {};
+              const riskBadgeStyle = 
+                vessel.riskClass === 'VERY HIGH' ? 'bg-red-700 text-white' :
+                vessel.riskClass === 'HIGH' ? 'bg-amber-600 text-white' :
+                vessel.riskClass === 'MODERATE' ? 'bg-blue-600 text-white' :
+                'bg-slate-600 text-white';
+
               return (
                 <div 
                   key={vessel.mmsi}
-                  onClick={() => setSelectedVessel(vessel.name)}
+                  onClick={() => {
+                    setSelectedVessel(vessel.name);
+                    setSelectedVesselMmsi(vessel.mmsi);
+                  }}
                   className={`p-3 rounded-gov border cursor-pointer transition-all ${
-                    selectedVessel === vessel.name
-                      ? 'border-navy-800 bg-navy-800/5 ring-1 ring-navy-800'
+                    isSelected
+                      ? 'border-navy-800 bg-navy-800/5 ring-2 ring-navy-800 shadow-xs'
                       : 'border-gov-border bg-white hover:border-gray-400'
                   }`}
                 >
+                  {/* Card Header: Rank, Name, Score, Classification */}
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        isTop ? 'bg-red-600 text-white' : 'bg-gov-blue text-white'
-                      }`}>
+                      <span 
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-xs"
+                        style={{ background: vessel.color }}
+                      >
                         {idx + 1}
                       </span>
                       <div>
-                        <h4 className="text-xs font-extrabold text-navy-800 flex items-center gap-1">
-                          <Anchor className="w-3.5 h-3.5 text-gov-blue" />
+                        <h4 className="text-xs font-extrabold text-navy-800 flex items-center gap-1.5">
+                          <Anchor className="w-3.5 h-3.5" style={{ color: vessel.color }} />
                           <span>{vessel.name}</span>
                         </h4>
                         <p className="text-[10px] text-gov-muted font-mono">
@@ -931,58 +1058,130 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
                       </div>
                     </div>
 
-                    <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-xs ${
-                      isTop ? 'border-red-600 text-red-600 bg-red-50' : 'border-gov-blue text-gov-blue bg-blue-50'
-                    }`}>
-                      {vessel.score}
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base font-black font-mono text-navy-800">
+                          {vessel.score}
+                        </span>
+                        <span className="text-[10px] text-gov-muted font-bold">/100</span>
+                      </div>
+                      <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider ${riskBadgeStyle}`}>
+                        {vessel.riskClass}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 pt-2 border-t border-gov-border text-[10px]">
-                    <div>
-                      <div className="flex justify-between text-gov-muted mb-0.5">
-                        <span>Proximity to Origin:</span>
-                        <span className="font-bold text-navy-800">{vessel.proximity}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-gov-light rounded-full overflow-hidden">
-                        <div className="h-full bg-navy-800" style={{ width: `${vessel.proximity}%` }}></div>
-                      </div>
+                  {/* 5-Factor Score Breakdown with Progress Bars */}
+                  <div className="space-y-1 pt-2 border-t border-gov-border text-[10px]">
+                    <div className="flex justify-between text-gov-muted">
+                      <span>Origin Presence (45%):</span>
+                      <span className="font-mono font-bold text-navy-800">{Math.round(vessel.originPresence)}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-gov-light rounded-full overflow-hidden">
+                      <div className="h-full bg-navy-800" style={{ width: `${Math.min(100, vessel.originPresence)}%` }}></div>
                     </div>
 
-                    <div>
-                      <div className="flex justify-between text-gov-muted mb-0.5">
-                        <span>Trajectory Correlator:</span>
-                        <span className="font-bold text-navy-800">{vessel.trajectory}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-gov-light rounded-full overflow-hidden">
-                        <div className="h-full bg-navy-800" style={{ width: `${vessel.trajectory}%` }}></div>
-                      </div>
+                    <div className="flex justify-between text-gov-muted pt-0.5">
+                      <span>Behavior Anomaly (20%):</span>
+                      <span className="font-mono font-bold text-navy-800">{Math.round(vessel.behaviorAnomaly)}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-gov-light rounded-full overflow-hidden">
+                      <div className="h-full bg-navy-800" style={{ width: `${Math.min(100, vessel.behaviorAnomaly)}%` }}></div>
+                    </div>
+
+                    <div className="flex justify-between text-gov-muted pt-0.5">
+                      <span>Dwell Duration (15%):</span>
+                      <span className="font-mono font-bold text-navy-800">{Math.round(vessel.dwellTime)}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-gov-light rounded-full overflow-hidden">
+                      <div className="h-full bg-navy-800" style={{ width: `${Math.min(100, vessel.dwellTime)}%` }}></div>
+                    </div>
+
+                    <div className="flex justify-between text-gov-muted pt-0.5">
+                      <span>AIS Dark Gap (10%):</span>
+                      <span className="font-mono font-bold text-navy-800">{Math.round(vessel.aisGap)}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-gov-light rounded-full overflow-hidden">
+                      <div className="h-full bg-navy-800" style={{ width: `${Math.min(100, vessel.aisGap)}%` }}></div>
+                    </div>
+
+                    <div className="flex justify-between text-gov-muted pt-0.5">
+                      <span>Drift Trajectory (10%):</span>
+                      <span className="font-mono font-bold text-navy-800">
+                        {vessel.approachDeparture !== null && vessel.approachDeparture !== undefined ? `${Math.round(vessel.approachDeparture)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="w-full h-1 bg-gov-light rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-navy-800" 
+                        style={{ width: `${vessel.approachDeparture !== null && vessel.approachDeparture !== undefined ? Math.min(100, vessel.approachDeparture) : 0}%` }}
+                      ></div>
                     </div>
                   </div>
 
-                  <div className="mt-2.5 flex flex-wrap gap-1">
+                  {/* Raw Evidence Chips */}
+                  {ev.closest_approach_distance_km !== undefined && (
+                    <div className="mt-2 grid grid-cols-2 gap-1 bg-slate-50 p-1.5 rounded text-[9px] text-gov-muted font-mono border border-slate-200">
+                      <div>Approach: <strong className="text-navy-900">{ev.closest_approach_distance_km.toFixed(1)} km</strong></div>
+                      <div>Offset: <strong className="text-navy-900">{ev.time_offset_minutes.toFixed(0)} min</strong></div>
+                      <div>SOG @ Origin: <strong className="text-navy-900">{ev.sog_at_origin_kn ?? '—'} kn</strong></div>
+                      <div>Dwell: <strong className="text-navy-900">{ev.dwell_minutes_inside_zone ?? 0} min</strong></div>
+                    </div>
+                  )}
+
+                  {/* Warning & Quality Flags */}
+                  <div className="mt-2 flex flex-wrap gap-1">
                     {vessel.flags.map((f: string, fIdx: number) => (
                       <span 
                         key={fIdx}
-                        className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded border ${
-                          f.includes('GAP') || f.includes('DEVIATION')
-                            ? 'bg-red-50 text-red-800 border-red-200'
+                        className={`text-[8px] font-semibold uppercase px-1.5 py-0.2 rounded border ${
+                          f.includes('GAP') || f.includes('DEVIATION') || f.includes('REDUCTION')
+                            ? 'bg-amber-50 text-amber-900 border-amber-200'
                             : 'bg-gov-light text-navy-800 border-gov-border'
                         }`}
                       >
                         {f}
                       </span>
                     ))}
+                    {vessel.qualityFlags.map((qf: string, qIdx: number) => (
+                      <span key={qIdx} className="text-[8px] font-mono uppercase px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        {qf}
+                      </span>
+                    ))}
                   </div>
+
+                  {/* Audit Evidence Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExplainVessel(vessel.raw);
+                      setShowExplainModal(true);
+                    }}
+                    className="mt-2.5 w-full py-1 px-2 bg-slate-100 hover:bg-slate-200 text-navy-800 rounded text-[10px] font-semibold border border-gov-border flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <Activity className="w-3 h-3 text-gov-blue" />
+                    <span>Audit Forensic Evidence</span>
+                  </button>
                 </div>
               );
             })}
 
             {currentData.vessels.length === 0 && (
               <div className="text-center py-8 text-gov-muted text-xs">
-                No vessel attribution data available for this case.
+                No vessel attribution data available for this case. Upload an AIS telemetry file to correlate candidate vessels.
               </div>
             )}
+          </div>
+
+          {/* Scientific Notice */}
+          <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded text-[10px] text-slate-700 space-y-1">
+            <div className="flex items-center gap-1 font-bold text-navy-800 text-[10px] uppercase">
+              <Info className="w-3.5 h-3.5 text-gov-blue" />
+              <span>Evidence Correlation Notice</span>
+            </div>
+            <p className="leading-tight text-[9px]">
+              Evidence Correlation Scores (0–100) are deterministic multi-factor ranking metrics. They do not constitute proof of causation, vessel culpability, or legal responsibility.
+            </p>
           </div>
 
           {/* Fleet Analytics */}
@@ -1077,13 +1276,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
 
               <div className="space-y-2">
                 <h4 className="font-bold text-navy-800 uppercase tracking-wider text-xs border-b border-gov-border pb-1">
-                  3. Primary Suspect Vessel Attribution
+                  3. Primary Correlated Vessel Evidence
                 </h4>
                 {currentData.vessels.length > 0 ? (
-                  <div className="bg-red-50 border border-red-200 p-3 rounded-gov space-y-1">
-                    <p><strong className="text-red-900">Rank #1 Suspect Vessel:</strong> {currentData.vessels[0].name} (MMSI: {currentData.vessels[0].mmsi})</p>
-                    <p><strong className="text-red-900">Attribution Probability:</strong> {currentData.vessels[0].score}% Confidence</p>
-                    <p><strong className="text-red-900">Correlated Anomalies:</strong> {currentData.vessels[0].flags.join(', ')}</p>
+                  <div className="bg-slate-50 border border-gov-border p-3 rounded-gov space-y-1">
+                    <p><strong className="text-navy-900">Rank #1 Correlated Vessel:</strong> {currentData.vessels[0].name} (MMSI: {currentData.vessels[0].mmsi})</p>
+                    <p><strong className="text-navy-900">Evidence Correlation Score:</strong> {currentData.vessels[0].score}/100 ({currentData.vessels[0].riskClass})</p>
+                    <p><strong className="text-navy-900">Evidence Flags:</strong> {currentData.vessels[0].flags.join(', ') || 'NONE'}</p>
+                    <p className="text-[10px] text-gov-muted italic mt-1">
+                      Notice: Evidence Correlation Scores (0–100) are deterministic multi-factor ranking metrics. They do not constitute proof of causation, vessel culpability, or legal responsibility.
+                    </p>
                   </div>
                 ) : (
                   <p className="text-gov-muted">No vessel attribution data available.</p>
@@ -1116,6 +1318,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenUpload, 
             </div>
           </div>
         </div>
+      )}
+
+      {/* EXPLAINABILITY AUDIT MODAL */}
+      {showExplainModal && explainVessel && (
+        <ExplainabilityModal
+          vessel={explainVessel}
+          caseId={activeCase}
+          onClose={() => setShowExplainModal(false)}
+        />
       )}
     </div>
   );

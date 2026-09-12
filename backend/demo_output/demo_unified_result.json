@@ -1,0 +1,2084 @@
+{
+  "feature2_version": "1.0.0",
+  "spill_id": "DEMO_SENTINEL1_OFFSHORE_SLICK_001",
+  "observation": {
+    "observation_time": "2018-08-03T17:25:57Z",
+    "centroid": {
+      "lat": 55.241575,
+      "lon": 4.053477
+    },
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            4.02118,
+            55.15008
+          ],
+          [
+            4.12044,
+            55.15008
+          ],
+          [
+            4.0634,
+            55.24126
+          ],
+          [
+            4.06322,
+            55.24144
+          ],
+          [
+            4.02118,
+            55.15008
+          ]
+        ]
+      ]
+    },
+    "area_km2": 1.4539,
+    "perimeter_km": 8.0
+  },
+  "environment": {
+    "domain": {
+      "bbox": {
+        "min_lat": 54.70041981813773,
+        "max_lat": 55.69110018186227,
+        "min_lon": 3.233372707268731,
+        "max_lon": 4.90824729273127
+      },
+      "buffer_km": 50.0
+    },
+    "historical_window": {
+      "start": "2018-07-31T17:25:57Z",
+      "end": "2018-08-03T17:25:57Z"
+    },
+    "forecast_window": {
+      "start": "2018-08-03T17:25:57Z",
+      "end": "2018-08-05T17:25:57Z"
+    },
+    "forecast_provenance_status": "HISTORICAL_REPLAY_FIXTURE",
+    "forecast_provenance_notes": "Historical replay forecast: forecast forcing for 2018 is supplied by local historical fixture data because current operational GFS does not archive the 2018 forecast cycle.",
+    "fields": {
+      "historical_wind": {
+        "provider_name": "ECMWF ERA5",
+        "dataset_id": "reanalysis-era5-single-levels",
+        "model_source": "ERA5",
+        "access_provider": "ECMWF CDS API",
+        "field_type": "surface_wind",
+        "data_category": "historical",
+        "source_type": "LOCAL_TEST_FIXTURE",
+        "cache_status": "direct",
+        "requested_time_range": {
+          "start": "2018-07-31T17:25:57Z",
+          "end": "2018-08-03T17:25:57Z"
+        },
+        "actual_time_range": {
+          "start": "2018-07-31T12:00:00Z",
+          "end": "2018-08-04T06:00:00Z"
+        },
+        "used_in_numerical_simulation": true,
+        "notes": "Applied in numerical Lagrangian simulation."
+      },
+      "historical_currents": {
+        "provider_name": "Copernicus Marine Service",
+        "dataset_id": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        "model_source": "Copernicus Global Ocean Physics Analysis and Forecast",
+        "access_provider": "Copernicus Marine Data Store",
+        "field_type": "ocean_currents",
+        "data_category": "historical",
+        "source_type": "LOCAL_TEST_FIXTURE",
+        "cache_status": "direct",
+        "requested_time_range": {
+          "start": "2018-07-31T17:25:57Z",
+          "end": "2018-08-03T17:25:57Z"
+        },
+        "actual_time_range": {
+          "start": "2018-07-31T12:00:00Z",
+          "end": "2018-08-06T06:00:00Z"
+        },
+        "used_in_numerical_simulation": true,
+        "notes": "Applied in numerical Lagrangian simulation."
+      },
+      "forecast_wind": {
+        "provider_name": "NOAA GFS",
+        "dataset_id": "gfs_0p25_forecast",
+        "model_source": "GFS",
+        "access_provider": "Open-Meteo",
+        "field_type": "surface_wind",
+        "data_category": "forecast",
+        "source_type": "LOCAL_TEST_FIXTURE",
+        "cache_status": "direct",
+        "requested_time_range": {
+          "start": "2018-08-03T17:25:57Z",
+          "end": "2018-08-05T17:25:57Z"
+        },
+        "actual_time_range": {
+          "start": "2018-08-03T12:00:00Z",
+          "end": "2018-08-06T06:00:00Z"
+        },
+        "used_in_numerical_simulation": true,
+        "notes": "Applied in numerical Lagrangian simulation."
+      },
+      "forecast_currents": {
+        "provider_name": "Copernicus Marine Service",
+        "dataset_id": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        "model_source": "Copernicus Global Ocean Physics Analysis and Forecast",
+        "access_provider": "Copernicus Marine Data Store",
+        "field_type": "ocean_currents",
+        "data_category": "forecast",
+        "source_type": "LOCAL_TEST_FIXTURE",
+        "cache_status": "direct",
+        "requested_time_range": {
+          "start": "2018-08-03T17:25:57Z",
+          "end": "2018-08-05T17:25:57Z"
+        },
+        "actual_time_range": {
+          "start": "2018-07-31T12:00:00Z",
+          "end": "2018-08-06T06:00:00Z"
+        },
+        "used_in_numerical_simulation": true,
+        "notes": "Applied in numerical Lagrangian simulation."
+      }
+    },
+    "providers": {
+      "historical_wind": {
+        "source": "ECMWF ERA5",
+        "product": "reanalysis-era5-single-levels",
+        "variables": [
+          "u10",
+          "v10"
+        ],
+        "units": "m/s",
+        "mode": "historical",
+        "source_type": "local_netcdf",
+        "cache_status": "direct",
+        "active_filepath": "C:\\Users\\Harsh\\OneDrive\\Desktop\\sihRefine\\Spill_Tracker\\backend\\tests\\feature2\\fixtures\\environment\\north_sea_era5_2018.nc",
+        "spatial_domain": {
+          "min_lat": 53.0,
+          "max_lat": 57.5,
+          "min_lon": 1.5,
+          "max_lon": 6.5
+        },
+        "temporal_domain": {
+          "start": "2018-07-31T12:00:00+00:00",
+          "end": "2018-08-04T06:00:00+00:00"
+        }
+      },
+      "historical_currents": {
+        "source": "Copernicus Marine Service",
+        "product": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        "variables": [
+          "uo",
+          "vo"
+        ],
+        "units": "m/s",
+        "selected_depth_m": 0.494,
+        "layer_description": "Surface ocean layer (0.0 to 0.494m)",
+        "mode": "historical",
+        "source_type": "local_netcdf",
+        "cache_status": "direct",
+        "active_filepath": "C:\\Users\\Harsh\\OneDrive\\Desktop\\sihRefine\\Spill_Tracker\\backend\\tests\\feature2\\fixtures\\environment\\north_sea_copernicus_2018.nc",
+        "spatial_domain": {
+          "min_lat": 53.0,
+          "max_lat": 57.5,
+          "min_lon": 1.5,
+          "max_lon": 6.5
+        },
+        "temporal_domain": {
+          "start": "2018-07-31T12:00:00+00:00",
+          "end": "2018-08-06T06:00:00+00:00"
+        }
+      },
+      "forecast_wind": {
+        "source": "NOAA GFS",
+        "product": "gfs_0p25_forecast",
+        "variables": [
+          "u10",
+          "v10"
+        ],
+        "units": "m/s",
+        "mode": "forecast",
+        "source_type": "local_netcdf",
+        "cache_status": "direct",
+        "active_filepath": "C:\\Users\\Harsh\\OneDrive\\Desktop\\sihRefine\\Spill_Tracker\\backend\\tests\\feature2\\fixtures\\environment\\north_sea_forecast_wind_2018.nc",
+        "spatial_domain": {
+          "min_lat": 53.0,
+          "max_lat": 57.5,
+          "min_lon": 1.5,
+          "max_lon": 6.5
+        },
+        "temporal_domain": {
+          "start": "2018-08-03T12:00:00+00:00",
+          "end": "2018-08-06T06:00:00+00:00"
+        }
+      },
+      "forecast_currents": {
+        "source": "Copernicus Marine Service",
+        "product": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        "variables": [
+          "uo",
+          "vo"
+        ],
+        "units": "m/s",
+        "selected_depth_m": 0.494,
+        "layer_description": "Forecast surface ocean layer (0.0 to 0.494m)",
+        "mode": "forecast",
+        "source_type": "local_netcdf",
+        "cache_status": "direct",
+        "active_filepath": "C:\\Users\\Harsh\\OneDrive\\Desktop\\sihRefine\\Spill_Tracker\\backend\\tests\\feature2\\fixtures\\environment\\north_sea_copernicus_2018.nc",
+        "spatial_domain": {
+          "min_lat": 53.0,
+          "max_lat": 57.5,
+          "min_lon": 1.5,
+          "max_lon": 6.5
+        },
+        "temporal_domain": {
+          "start": "2018-07-31T12:00:00+00:00",
+          "end": "2018-08-06T06:00:00+00:00"
+        }
+      }
+    }
+  },
+  "origin": {
+    "best_candidate": {
+      "candidate_id": "ORIGIN_1",
+      "centroid": {
+        "lat": 55.157128,
+        "lon": 4.001838
+      },
+      "evidence_score": 0.7794,
+      "release_time_utc": "2018-08-03T14:25:57Z",
+      "hours_before_t0": 3.0,
+      "uncertainty": {
+        "spread_radius_km": 2.908,
+        "semi_major_axis_km": 6.263,
+        "semi_minor_axis_km": 3.384,
+        "orientation_deg": 358.34,
+        "uncertainty_polygon": null
+      },
+      "active_particles": 30
+    },
+    "evidence_score": 0.7794,
+    "release_time_window": {
+      "start": "2018-07-31T17:25:57Z",
+      "end": "2018-08-03T14:25:57Z",
+      "peak_evidence_time": "2018-08-03T14:25:57Z",
+      "duration_hours": 69.0
+    },
+    "candidate_count": 24,
+    "uncertainty": {
+      "spread_radius_km": 2.908,
+      "semi_major_axis_km": 6.263,
+      "semi_minor_axis_km": 3.384,
+      "orientation_deg": 358.34,
+      "uncertainty_polygon": null
+    },
+    "candidates": [
+      {
+        "candidate_id": "ORIGIN_1",
+        "centroid": {
+          "lat": 55.157128,
+          "lon": 4.001838
+        },
+        "evidence_score": 0.7794,
+        "release_time_utc": "2018-08-03T14:25:57Z",
+        "hours_before_t0": 3.0,
+        "uncertainty": {
+          "spread_radius_km": 2.908,
+          "semi_major_axis_km": 6.263,
+          "semi_minor_axis_km": 3.384,
+          "orientation_deg": 358.34,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_2",
+        "centroid": {
+          "lat": 55.135275,
+          "lon": 3.936405
+        },
+        "evidence_score": 0.7793,
+        "release_time_utc": "2018-08-03T11:25:57Z",
+        "hours_before_t0": 6.0,
+        "uncertainty": {
+          "spread_radius_km": 2.909,
+          "semi_major_axis_km": 6.263,
+          "semi_minor_axis_km": 3.386,
+          "orientation_deg": 358.27,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_3",
+        "centroid": {
+          "lat": 55.113421,
+          "lon": 3.871008
+        },
+        "evidence_score": 0.7793,
+        "release_time_utc": "2018-08-03T08:25:57Z",
+        "hours_before_t0": 9.0,
+        "uncertainty": {
+          "spread_radius_km": 2.909,
+          "semi_major_axis_km": 6.263,
+          "semi_minor_axis_km": 3.387,
+          "orientation_deg": 358.19,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_4",
+        "centroid": {
+          "lat": 55.091568,
+          "lon": 3.805646
+        },
+        "evidence_score": 0.7793,
+        "release_time_utc": "2018-08-03T05:25:57Z",
+        "hours_before_t0": 12.0,
+        "uncertainty": {
+          "spread_radius_km": 2.91,
+          "semi_major_axis_km": 6.264,
+          "semi_minor_axis_km": 3.389,
+          "orientation_deg": 358.11,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_5",
+        "centroid": {
+          "lat": 55.069714,
+          "lon": 3.74032
+        },
+        "evidence_score": 0.7793,
+        "release_time_utc": "2018-08-03T02:25:57Z",
+        "hours_before_t0": 15.0,
+        "uncertainty": {
+          "spread_radius_km": 2.91,
+          "semi_major_axis_km": 6.264,
+          "semi_minor_axis_km": 3.391,
+          "orientation_deg": 358.03,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_6",
+        "centroid": {
+          "lat": 55.047861,
+          "lon": 3.67503
+        },
+        "evidence_score": 0.7793,
+        "release_time_utc": "2018-08-02T23:25:57Z",
+        "hours_before_t0": 18.0,
+        "uncertainty": {
+          "spread_radius_km": 2.91,
+          "semi_major_axis_km": 6.264,
+          "semi_minor_axis_km": 3.393,
+          "orientation_deg": 357.96,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_7",
+        "centroid": {
+          "lat": 55.026007,
+          "lon": 3.609775
+        },
+        "evidence_score": 0.7792,
+        "release_time_utc": "2018-08-02T20:25:57Z",
+        "hours_before_t0": 21.0,
+        "uncertainty": {
+          "spread_radius_km": 2.911,
+          "semi_major_axis_km": 6.264,
+          "semi_minor_axis_km": 3.394,
+          "orientation_deg": 357.88,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_8",
+        "centroid": {
+          "lat": 55.004154,
+          "lon": 3.544556
+        },
+        "evidence_score": 0.7792,
+        "release_time_utc": "2018-08-02T17:25:57Z",
+        "hours_before_t0": 24.0,
+        "uncertainty": {
+          "spread_radius_km": 2.911,
+          "semi_major_axis_km": 6.265,
+          "semi_minor_axis_km": 3.396,
+          "orientation_deg": 357.8,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_9",
+        "centroid": {
+          "lat": 54.9823,
+          "lon": 3.479373
+        },
+        "evidence_score": 0.7792,
+        "release_time_utc": "2018-08-02T14:25:57Z",
+        "hours_before_t0": 27.0,
+        "uncertainty": {
+          "spread_radius_km": 2.912,
+          "semi_major_axis_km": 6.265,
+          "semi_minor_axis_km": 3.398,
+          "orientation_deg": 357.72,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_10",
+        "centroid": {
+          "lat": 54.960447,
+          "lon": 3.414225
+        },
+        "evidence_score": 0.7792,
+        "release_time_utc": "2018-08-02T11:25:57Z",
+        "hours_before_t0": 30.0,
+        "uncertainty": {
+          "spread_radius_km": 2.912,
+          "semi_major_axis_km": 6.265,
+          "semi_minor_axis_km": 3.4,
+          "orientation_deg": 357.64,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_11",
+        "centroid": {
+          "lat": 54.938593,
+          "lon": 3.349112
+        },
+        "evidence_score": 0.7791,
+        "release_time_utc": "2018-08-02T08:25:57Z",
+        "hours_before_t0": 33.0,
+        "uncertainty": {
+          "spread_radius_km": 2.913,
+          "semi_major_axis_km": 6.265,
+          "semi_minor_axis_km": 3.401,
+          "orientation_deg": 357.57,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_12",
+        "centroid": {
+          "lat": 54.91674,
+          "lon": 3.284035
+        },
+        "evidence_score": 0.7791,
+        "release_time_utc": "2018-08-02T05:25:57Z",
+        "hours_before_t0": 36.0,
+        "uncertainty": {
+          "spread_radius_km": 2.913,
+          "semi_major_axis_km": 6.266,
+          "semi_minor_axis_km": 3.403,
+          "orientation_deg": 357.49,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_13",
+        "centroid": {
+          "lat": 54.894886,
+          "lon": 3.218993
+        },
+        "evidence_score": 0.7791,
+        "release_time_utc": "2018-08-02T02:25:57Z",
+        "hours_before_t0": 39.0,
+        "uncertainty": {
+          "spread_radius_km": 2.913,
+          "semi_major_axis_km": 6.266,
+          "semi_minor_axis_km": 3.405,
+          "orientation_deg": 357.41,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_14",
+        "centroid": {
+          "lat": 54.873033,
+          "lon": 3.153986
+        },
+        "evidence_score": 0.7791,
+        "release_time_utc": "2018-08-01T23:25:57Z",
+        "hours_before_t0": 42.0,
+        "uncertainty": {
+          "spread_radius_km": 2.914,
+          "semi_major_axis_km": 6.266,
+          "semi_minor_axis_km": 3.406,
+          "orientation_deg": 357.33,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_15",
+        "centroid": {
+          "lat": 54.851179,
+          "lon": 3.089015
+        },
+        "evidence_score": 0.7791,
+        "release_time_utc": "2018-08-01T20:25:57Z",
+        "hours_before_t0": 45.0,
+        "uncertainty": {
+          "spread_radius_km": 2.914,
+          "semi_major_axis_km": 6.266,
+          "semi_minor_axis_km": 3.408,
+          "orientation_deg": 357.25,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_16",
+        "centroid": {
+          "lat": 54.829326,
+          "lon": 3.024079
+        },
+        "evidence_score": 0.779,
+        "release_time_utc": "2018-08-01T17:25:57Z",
+        "hours_before_t0": 48.0,
+        "uncertainty": {
+          "spread_radius_km": 2.915,
+          "semi_major_axis_km": 6.267,
+          "semi_minor_axis_km": 3.41,
+          "orientation_deg": 357.18,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_17",
+        "centroid": {
+          "lat": 54.807472,
+          "lon": 2.959178
+        },
+        "evidence_score": 0.779,
+        "release_time_utc": "2018-08-01T14:25:57Z",
+        "hours_before_t0": 51.0,
+        "uncertainty": {
+          "spread_radius_km": 2.915,
+          "semi_major_axis_km": 6.267,
+          "semi_minor_axis_km": 3.412,
+          "orientation_deg": 357.1,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_18",
+        "centroid": {
+          "lat": 54.785619,
+          "lon": 2.894312
+        },
+        "evidence_score": 0.779,
+        "release_time_utc": "2018-08-01T11:25:57Z",
+        "hours_before_t0": 54.0,
+        "uncertainty": {
+          "spread_radius_km": 2.916,
+          "semi_major_axis_km": 6.267,
+          "semi_minor_axis_km": 3.413,
+          "orientation_deg": 357.02,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_19",
+        "centroid": {
+          "lat": 54.763765,
+          "lon": 2.829481
+        },
+        "evidence_score": 0.779,
+        "release_time_utc": "2018-08-01T08:25:57Z",
+        "hours_before_t0": 57.0,
+        "uncertainty": {
+          "spread_radius_km": 2.916,
+          "semi_major_axis_km": 6.268,
+          "semi_minor_axis_km": 3.415,
+          "orientation_deg": 356.94,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_20",
+        "centroid": {
+          "lat": 54.741912,
+          "lon": 2.764685
+        },
+        "evidence_score": 0.779,
+        "release_time_utc": "2018-08-01T05:25:57Z",
+        "hours_before_t0": 60.0,
+        "uncertainty": {
+          "spread_radius_km": 2.916,
+          "semi_major_axis_km": 6.268,
+          "semi_minor_axis_km": 3.417,
+          "orientation_deg": 356.86,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_21",
+        "centroid": {
+          "lat": 54.720059,
+          "lon": 2.699924
+        },
+        "evidence_score": 0.7789,
+        "release_time_utc": "2018-08-01T02:25:57Z",
+        "hours_before_t0": 63.0,
+        "uncertainty": {
+          "spread_radius_km": 2.917,
+          "semi_major_axis_km": 6.268,
+          "semi_minor_axis_km": 3.418,
+          "orientation_deg": 356.79,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_22",
+        "centroid": {
+          "lat": 54.698205,
+          "lon": 2.635198
+        },
+        "evidence_score": 0.7789,
+        "release_time_utc": "2018-07-31T23:25:57Z",
+        "hours_before_t0": 66.0,
+        "uncertainty": {
+          "spread_radius_km": 2.917,
+          "semi_major_axis_km": 6.269,
+          "semi_minor_axis_km": 3.42,
+          "orientation_deg": 356.71,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_23",
+        "centroid": {
+          "lat": 54.676352,
+          "lon": 2.570507
+        },
+        "evidence_score": 0.7789,
+        "release_time_utc": "2018-07-31T20:25:57Z",
+        "hours_before_t0": 69.0,
+        "uncertainty": {
+          "spread_radius_km": 2.918,
+          "semi_major_axis_km": 6.269,
+          "semi_minor_axis_km": 3.422,
+          "orientation_deg": 356.63,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      },
+      {
+        "candidate_id": "ORIGIN_24",
+        "centroid": {
+          "lat": 54.654498,
+          "lon": 2.50585
+        },
+        "evidence_score": 0.7789,
+        "release_time_utc": "2018-07-31T17:25:57Z",
+        "hours_before_t0": 72.0,
+        "uncertainty": {
+          "spread_radius_km": 2.918,
+          "semi_major_axis_km": 6.269,
+          "semi_minor_axis_km": 3.423,
+          "orientation_deg": 356.55,
+          "uncertainty_polygon": null
+        },
+        "active_particles": 30
+      }
+    ],
+    "search_horizon_hours": 72.0,
+    "disclaimer": "The origin score is a normalized evidence/confidence metric and is not a calibrated probability. The candidate region is an estimated convergence zone, not a confirmed spill source."
+  },
+  "forecast": {
+    "initialization": {
+      "source": "observed_feature1_slick",
+      "time": "2018-08-03T17:25:57Z",
+      "centroid": {
+        "lat": 55.241575,
+        "lon": 4.053477
+      },
+      "notes": "Forward forecasting is initialized strictly from the observed Feature 1 slick at T0. Backward origin reconstruction is auxiliary attribution metadata and is not used as the forecast initialization."
+    },
+    "horizons": [
+      {
+        "horizon_hours": 6.0,
+        "timestamp": "2018-08-03T23:25:57Z",
+        "centroid": {
+          "lat": 55.223297,
+          "lon": 4.207973
+        },
+        "active_particles": 30,
+        "total_particles": 30,
+        "spread_radius_km": 2.733,
+        "uncertainty": {
+          "radius_km": 2.733,
+          "semi_major_km": 5.869,
+          "semi_minor_km": 3.213,
+          "orientation_deg": 342.21,
+          "uncertainty_polygon": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  4.179699,
+                  55.273553
+                ],
+                [
+                  4.171752,
+                  55.271257
+                ],
+                [
+                  4.164906,
+                  55.267503
+                ],
+                [
+                  4.159369,
+                  55.262406
+                ],
+                [
+                  4.155308,
+                  55.256121
+                ],
+                [
+                  4.152847,
+                  55.248838
+                ],
+                [
+                  4.152061,
+                  55.240779
+                ],
+                [
+                  4.152974,
+                  55.23219
+                ],
+                [
+                  4.155559,
+                  55.223329
+                ],
+                [
+                  4.159736,
+                  55.214468
+                ],
+                [
+                  4.165378,
+                  55.205876
+                ],
+                [
+                  4.172315,
+                  55.197812
+                ],
+                [
+                  4.180335,
+                  55.190523
+                ],
+                [
+                  4.189195,
+                  55.18423
+                ],
+                [
+                  4.198625,
+                  55.179124
+                ],
+                [
+                  4.20834,
+                  55.17536
+                ],
+                [
+                  4.218043,
+                  55.173052
+                ],
+                [
+                  4.227441,
+                  55.172272
+                ],
+                [
+                  4.236247,
+                  55.173041
+                ],
+                [
+                  4.244193,
+                  55.175338
+                ],
+                [
+                  4.25104,
+                  55.179092
+                ],
+                [
+                  4.256577,
+                  55.184189
+                ],
+                [
+                  4.260638,
+                  55.190474
+                ],
+                [
+                  4.263099,
+                  55.197757
+                ],
+                [
+                  4.263884,
+                  55.205815
+                ],
+                [
+                  4.262971,
+                  55.214405
+                ],
+                [
+                  4.260387,
+                  55.223265
+                ],
+                [
+                  4.25621,
+                  55.232126
+                ],
+                [
+                  4.250568,
+                  55.240719
+                ],
+                [
+                  4.243631,
+                  55.248782
+                ],
+                [
+                  4.235611,
+                  55.256071
+                ],
+                [
+                  4.226751,
+                  55.262365
+                ],
+                [
+                  4.21732,
+                  55.267471
+                ],
+                [
+                  4.207606,
+                  55.271235
+                ],
+                [
+                  4.197902,
+                  55.273542
+                ],
+                [
+                  4.188505,
+                  55.274323
+                ],
+                [
+                  4.179699,
+                  55.273553
+                ]
+              ]
+            ]
+          }
+        },
+        "simulation_quality": "HIGH",
+        "quality": "HIGH",
+        "valid": true,
+        "predicted_slick_polygon": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                4.179699,
+                55.273553
+              ],
+              [
+                4.171752,
+                55.271257
+              ],
+              [
+                4.164906,
+                55.267503
+              ],
+              [
+                4.159369,
+                55.262406
+              ],
+              [
+                4.155308,
+                55.256121
+              ],
+              [
+                4.152847,
+                55.248838
+              ],
+              [
+                4.152061,
+                55.240779
+              ],
+              [
+                4.152974,
+                55.23219
+              ],
+              [
+                4.155559,
+                55.223329
+              ],
+              [
+                4.159736,
+                55.214468
+              ],
+              [
+                4.165378,
+                55.205876
+              ],
+              [
+                4.172315,
+                55.197812
+              ],
+              [
+                4.180335,
+                55.190523
+              ],
+              [
+                4.189195,
+                55.18423
+              ],
+              [
+                4.198625,
+                55.179124
+              ],
+              [
+                4.20834,
+                55.17536
+              ],
+              [
+                4.218043,
+                55.173052
+              ],
+              [
+                4.227441,
+                55.172272
+              ],
+              [
+                4.236247,
+                55.173041
+              ],
+              [
+                4.244193,
+                55.175338
+              ],
+              [
+                4.25104,
+                55.179092
+              ],
+              [
+                4.256577,
+                55.184189
+              ],
+              [
+                4.260638,
+                55.190474
+              ],
+              [
+                4.263099,
+                55.197757
+              ],
+              [
+                4.263884,
+                55.205815
+              ],
+              [
+                4.262971,
+                55.214405
+              ],
+              [
+                4.260387,
+                55.223265
+              ],
+              [
+                4.25621,
+                55.232126
+              ],
+              [
+                4.250568,
+                55.240719
+              ],
+              [
+                4.243631,
+                55.248782
+              ],
+              [
+                4.235611,
+                55.256071
+              ],
+              [
+                4.226751,
+                55.262365
+              ],
+              [
+                4.21732,
+                55.267471
+              ],
+              [
+                4.207606,
+                55.271235
+              ],
+              [
+                4.197902,
+                55.273542
+              ],
+              [
+                4.188505,
+                55.274323
+              ],
+              [
+                4.179699,
+                55.273553
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "horizon_hours": 12.0,
+        "timestamp": "2018-08-04T05:25:57Z",
+        "centroid": {
+          "lat": 55.264652,
+          "lon": 4.343822
+        },
+        "active_particles": 30,
+        "total_particles": 30,
+        "spread_radius_km": 2.778,
+        "uncertainty": {
+          "radius_km": 2.778,
+          "semi_major_km": 6.082,
+          "semi_minor_km": 3.044,
+          "orientation_deg": 338.87,
+          "uncertainty_polygon": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  4.309212,
+                  55.315669
+                ],
+                [
+                  4.301957,
+                  55.31318
+                ],
+                [
+                  4.295973,
+                  55.309217
+                ],
+                [
+                  4.291444,
+                  55.303899
+                ],
+                [
+                  4.288506,
+                  55.297389
+                ],
+                [
+                  4.287249,
+                  55.289885
+                ],
+                [
+                  4.28771,
+                  55.281613
+                ],
+                [
+                  4.289877,
+                  55.272827
+                ],
+                [
+                  4.293683,
+                  55.263791
+                ],
+                [
+                  4.299012,
+                  55.254783
+                ],
+                [
+                  4.305703,
+                  55.246073
+                ],
+                [
+                  4.313552,
+                  55.237929
+                ],
+                [
+                  4.32232,
+                  55.230596
+                ],
+                [
+                  4.331742,
+                  55.224298
+                ],
+                [
+                  4.341531,
+                  55.219227
+                ],
+                [
+                  4.35139,
+                  55.215535
+                ],
+                [
+                  4.361019,
+                  55.213336
+                ],
+                [
+                  4.370125,
+                  55.212696
+                ],
+                [
+                  4.378432,
+                  55.213635
+                ],
+                [
+                  4.385687,
+                  55.216124
+                ],
+                [
+                  4.39167,
+                  55.220087
+                ],
+                [
+                  4.3962,
+                  55.225404
+                ],
+                [
+                  4.399138,
+                  55.231914
+                ],
+                [
+                  4.400395,
+                  55.239419
+                ],
+                [
+                  4.399933,
+                  55.24769
+                ],
+                [
+                  4.397767,
+                  55.256477
+                ],
+                [
+                  4.393961,
+                  55.265512
+                ],
+                [
+                  4.388632,
+                  55.274521
+                ],
+                [
+                  4.381941,
+                  55.28323
+                ],
+                [
+                  4.374092,
+                  55.291375
+                ],
+                [
+                  4.365323,
+                  55.298707
+                ],
+                [
+                  4.355901,
+                  55.305005
+                ],
+                [
+                  4.346112,
+                  55.310077
+                ],
+                [
+                  4.336254,
+                  55.313768
+                ],
+                [
+                  4.326625,
+                  55.315968
+                ],
+                [
+                  4.317519,
+                  55.316608
+                ],
+                [
+                  4.309212,
+                  55.315669
+                ]
+              ]
+            ]
+          }
+        },
+        "simulation_quality": "HIGH",
+        "quality": "HIGH",
+        "valid": true,
+        "predicted_slick_polygon": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                4.309212,
+                55.315669
+              ],
+              [
+                4.301957,
+                55.31318
+              ],
+              [
+                4.295973,
+                55.309217
+              ],
+              [
+                4.291444,
+                55.303899
+              ],
+              [
+                4.288506,
+                55.297389
+              ],
+              [
+                4.287249,
+                55.289885
+              ],
+              [
+                4.28771,
+                55.281613
+              ],
+              [
+                4.289877,
+                55.272827
+              ],
+              [
+                4.293683,
+                55.263791
+              ],
+              [
+                4.299012,
+                55.254783
+              ],
+              [
+                4.305703,
+                55.246073
+              ],
+              [
+                4.313552,
+                55.237929
+              ],
+              [
+                4.32232,
+                55.230596
+              ],
+              [
+                4.331742,
+                55.224298
+              ],
+              [
+                4.341531,
+                55.219227
+              ],
+              [
+                4.35139,
+                55.215535
+              ],
+              [
+                4.361019,
+                55.213336
+              ],
+              [
+                4.370125,
+                55.212696
+              ],
+              [
+                4.378432,
+                55.213635
+              ],
+              [
+                4.385687,
+                55.216124
+              ],
+              [
+                4.39167,
+                55.220087
+              ],
+              [
+                4.3962,
+                55.225404
+              ],
+              [
+                4.399138,
+                55.231914
+              ],
+              [
+                4.400395,
+                55.239419
+              ],
+              [
+                4.399933,
+                55.24769
+              ],
+              [
+                4.397767,
+                55.256477
+              ],
+              [
+                4.393961,
+                55.265512
+              ],
+              [
+                4.388632,
+                55.274521
+              ],
+              [
+                4.381941,
+                55.28323
+              ],
+              [
+                4.374092,
+                55.291375
+              ],
+              [
+                4.365323,
+                55.298707
+              ],
+              [
+                4.355901,
+                55.305005
+              ],
+              [
+                4.346112,
+                55.310077
+              ],
+              [
+                4.336254,
+                55.313768
+              ],
+              [
+                4.326625,
+                55.315968
+              ],
+              [
+                4.317519,
+                55.316608
+              ],
+              [
+                4.309212,
+                55.315669
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "horizon_hours": 24.0,
+        "timestamp": "2018-08-04T17:25:57Z",
+        "centroid": {
+          "lat": 55.347163,
+          "lon": 4.617928
+        },
+        "active_particles": 30,
+        "total_particles": 30,
+        "spread_radius_km": 3.025,
+        "uncertainty": {
+          "radius_km": 3.025,
+          "semi_major_km": 6.468,
+          "semi_minor_km": 3.605,
+          "orientation_deg": 342.69,
+          "uncertainty_polygon": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  4.587491,
+                  55.402698
+                ],
+                [
+                  4.578501,
+                  55.40018
+                ],
+                [
+                  4.57071,
+                  55.39605
+                ],
+                [
+                  4.564353,
+                  55.390435
+                ],
+                [
+                  4.559624,
+                  55.383506
+                ],
+                [
+                  4.556666,
+                  55.375472
+                ],
+                [
+                  4.55557,
+                  55.366578
+                ],
+                [
+                  4.556369,
+                  55.357094
+                ],
+                [
+                  4.559038,
+                  55.347308
+                ],
+                [
+                  4.563496,
+                  55.337518
+                ],
+                [
+                  4.569609,
+                  55.328021
+                ],
+                [
+                  4.577189,
+                  55.319105
+                ],
+                [
+                  4.586008,
+                  55.311042
+                ],
+                [
+                  4.595796,
+                  55.304077
+                ],
+                [
+                  4.606256,
+                  55.29842
+                ],
+                [
+                  4.617072,
+                  55.294245
+                ],
+                [
+                  4.627913,
+                  55.291678
+                ],
+                [
+                  4.638451,
+                  55.290796
+                ],
+                [
+                  4.648365,
+                  55.291627
+                ],
+                [
+                  4.657355,
+                  55.294146
+                ],
+                [
+                  4.665146,
+                  55.298275
+                ],
+                [
+                  4.671503,
+                  55.30389
+                ],
+                [
+                  4.676232,
+                  55.31082
+                ],
+                [
+                  4.67919,
+                  55.318854
+                ],
+                [
+                  4.680286,
+                  55.327748
+                ],
+                [
+                  4.679487,
+                  55.337232
+                ],
+                [
+                  4.676818,
+                  55.347018
+                ],
+                [
+                  4.672359,
+                  55.356808
+                ],
+                [
+                  4.666247,
+                  55.366305
+                ],
+                [
+                  4.658667,
+                  55.37522
+                ],
+                [
+                  4.649848,
+                  55.383283
+                ],
+                [
+                  4.64006,
+                  55.390249
+                ],
+                [
+                  4.629599,
+                  55.395905
+                ],
+                [
+                  4.618784,
+                  55.40008
+                ],
+                [
+                  4.607943,
+                  55.402648
+                ],
+                [
+                  4.597405,
+                  55.403529
+                ],
+                [
+                  4.587491,
+                  55.402698
+                ]
+              ]
+            ]
+          }
+        },
+        "simulation_quality": "HIGH",
+        "quality": "HIGH",
+        "valid": true,
+        "predicted_slick_polygon": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                4.587491,
+                55.402698
+              ],
+              [
+                4.578501,
+                55.40018
+              ],
+              [
+                4.57071,
+                55.39605
+              ],
+              [
+                4.564353,
+                55.390435
+              ],
+              [
+                4.559624,
+                55.383506
+              ],
+              [
+                4.556666,
+                55.375472
+              ],
+              [
+                4.55557,
+                55.366578
+              ],
+              [
+                4.556369,
+                55.357094
+              ],
+              [
+                4.559038,
+                55.347308
+              ],
+              [
+                4.563496,
+                55.337518
+              ],
+              [
+                4.569609,
+                55.328021
+              ],
+              [
+                4.577189,
+                55.319105
+              ],
+              [
+                4.586008,
+                55.311042
+              ],
+              [
+                4.595796,
+                55.304077
+              ],
+              [
+                4.606256,
+                55.29842
+              ],
+              [
+                4.617072,
+                55.294245
+              ],
+              [
+                4.627913,
+                55.291678
+              ],
+              [
+                4.638451,
+                55.290796
+              ],
+              [
+                4.648365,
+                55.291627
+              ],
+              [
+                4.657355,
+                55.294146
+              ],
+              [
+                4.665146,
+                55.298275
+              ],
+              [
+                4.671503,
+                55.30389
+              ],
+              [
+                4.676232,
+                55.31082
+              ],
+              [
+                4.67919,
+                55.318854
+              ],
+              [
+                4.680286,
+                55.327748
+              ],
+              [
+                4.679487,
+                55.337232
+              ],
+              [
+                4.676818,
+                55.347018
+              ],
+              [
+                4.672359,
+                55.356808
+              ],
+              [
+                4.666247,
+                55.366305
+              ],
+              [
+                4.658667,
+                55.37522
+              ],
+              [
+                4.649848,
+                55.383283
+              ],
+              [
+                4.64006,
+                55.390249
+              ],
+              [
+                4.629599,
+                55.395905
+              ],
+              [
+                4.618784,
+                55.40008
+              ],
+              [
+                4.607943,
+                55.402648
+              ],
+              [
+                4.597405,
+                55.403529
+              ],
+              [
+                4.587491,
+                55.402698
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "horizon_hours": 48.0,
+        "timestamp": "2018-08-05T17:25:57Z",
+        "centroid": {
+          "lat": 55.506924,
+          "lon": 5.167466
+        },
+        "active_particles": 30,
+        "total_particles": 30,
+        "spread_radius_km": 3.451,
+        "uncertainty": {
+          "radius_km": 3.451,
+          "semi_major_km": 6.626,
+          "semi_minor_km": 5.24,
+          "orientation_deg": 354.79,
+          "uncertainty_polygon": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  5.157906,
+                  55.566266
+                ],
+                [
+                  5.143661,
+                  55.564621
+                ],
+                [
+                  5.130138,
+                  55.561223
+                ],
+                [
+                  5.11775,
+                  55.556175
+                ],
+                [
+                  5.106872,
+                  55.549631
+                ],
+                [
+                  5.097836,
+                  55.541788
+                ],
+                [
+                  5.090915,
+                  55.532887
+                ],
+                [
+                  5.08632,
+                  55.523197
+                ],
+                [
+                  5.084191,
+                  55.513012
+                ],
+                [
+                  5.084592,
+                  55.502643
+                ],
+                [
+                  5.087511,
+                  55.492403
+                ],
+                [
+                  5.09286,
+                  55.482605
+                ],
+                [
+                  5.100475,
+                  55.473545
+                ],
+                [
+                  5.110126,
+                  55.4655
+                ],
+                [
+                  5.121519,
+                  55.458714
+                ],
+                [
+                  5.134308,
+                  55.453392
+                ],
+                [
+                  5.148105,
+                  55.449697
+                ],
+                [
+                  5.16249,
+                  55.44774
+                ],
+                [
+                  5.177026,
+                  55.447582
+                ],
+                [
+                  5.191272,
+                  55.449227
+                ],
+                [
+                  5.204795,
+                  55.452626
+                ],
+                [
+                  5.217183,
+                  55.457674
+                ],
+                [
+                  5.228061,
+                  55.464218
+                ],
+                [
+                  5.237097,
+                  55.47206
+                ],
+                [
+                  5.244018,
+                  55.480961
+                ],
+                [
+                  5.248613,
+                  55.490652
+                ],
+                [
+                  5.250742,
+                  55.500836
+                ],
+                [
+                  5.250341,
+                  55.511206
+                ],
+                [
+                  5.247422,
+                  55.521446
+                ],
+                [
+                  5.242073,
+                  55.531244
+                ],
+                [
+                  5.234458,
+                  55.540303
+                ],
+                [
+                  5.224807,
+                  55.548348
+                ],
+                [
+                  5.213414,
+                  55.555135
+                ],
+                [
+                  5.200625,
+                  55.560457
+                ],
+                [
+                  5.186828,
+                  55.564152
+                ],
+                [
+                  5.172443,
+                  55.566108
+                ],
+                [
+                  5.157906,
+                  55.566266
+                ]
+              ]
+            ]
+          }
+        },
+        "simulation_quality": "HIGH",
+        "quality": "HIGH",
+        "valid": true,
+        "predicted_slick_polygon": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                5.157906,
+                55.566266
+              ],
+              [
+                5.143661,
+                55.564621
+              ],
+              [
+                5.130138,
+                55.561223
+              ],
+              [
+                5.11775,
+                55.556175
+              ],
+              [
+                5.106872,
+                55.549631
+              ],
+              [
+                5.097836,
+                55.541788
+              ],
+              [
+                5.090915,
+                55.532887
+              ],
+              [
+                5.08632,
+                55.523197
+              ],
+              [
+                5.084191,
+                55.513012
+              ],
+              [
+                5.084592,
+                55.502643
+              ],
+              [
+                5.087511,
+                55.492403
+              ],
+              [
+                5.09286,
+                55.482605
+              ],
+              [
+                5.100475,
+                55.473545
+              ],
+              [
+                5.110126,
+                55.4655
+              ],
+              [
+                5.121519,
+                55.458714
+              ],
+              [
+                5.134308,
+                55.453392
+              ],
+              [
+                5.148105,
+                55.449697
+              ],
+              [
+                5.16249,
+                55.44774
+              ],
+              [
+                5.177026,
+                55.447582
+              ],
+              [
+                5.191272,
+                55.449227
+              ],
+              [
+                5.204795,
+                55.452626
+              ],
+              [
+                5.217183,
+                55.457674
+              ],
+              [
+                5.228061,
+                55.464218
+              ],
+              [
+                5.237097,
+                55.47206
+              ],
+              [
+                5.244018,
+                55.480961
+              ],
+              [
+                5.248613,
+                55.490652
+              ],
+              [
+                5.250742,
+                55.500836
+              ],
+              [
+                5.250341,
+                55.511206
+              ],
+              [
+                5.247422,
+                55.521446
+              ],
+              [
+                5.242073,
+                55.531244
+              ],
+              [
+                5.234458,
+                55.540303
+              ],
+              [
+                5.224807,
+                55.548348
+              ],
+              [
+                5.213414,
+                55.555135
+              ],
+              [
+                5.200625,
+                55.560457
+              ],
+              [
+                5.186828,
+                55.564152
+              ],
+              [
+                5.172443,
+                55.566108
+              ],
+              [
+                5.157906,
+                55.566266
+              ]
+            ]
+          ]
+        }
+      }
+    ],
+    "ensemble": {
+      "ensemble_realizations": 1,
+      "particles_per_realization": 30,
+      "total_particles": 30,
+      "particles_per_slick": 30,
+      "horizontal_diffusivity_m2_s": 10.0,
+      "ensemble_classification": "stochastic_particle_realization",
+      "dispersion_interpretation": "Spatial dispersion bounds represent numerical sub-grid turbulent diffusion spread, not a calibrated statistical confidence interval."
+    }
+  },
+  "quality": {
+    "overall_simulation_quality": "HIGH",
+    "overall": "HIGH",
+    "quality_metric_type": "numerical_simulation_integrity",
+    "accuracy_notice": "The 'HIGH' quality rating reflects numerical simulation integrity (active particle retention and environmental domain coverage). It is NOT an empirical forecast accuracy estimate.",
+    "historical_data_complete": true,
+    "forecast_data_complete": true,
+    "particle_retention_ratio": 1.0,
+    "coverage_warnings": [],
+    "assessment_rule": "Deterministic evaluation based on provider domain coverage completeness and active particle retention fraction."
+  },
+  "reproducibility": {
+    "random_seed": 42,
+    "ensemble_size": 1,
+    "particles_per_slick": 30,
+    "simulation_step_seconds": 600,
+    "configuration_hash": "6a92811e7328052a",
+    "feature2_version": "1.0.0"
+  },
+  "disclaimers": {
+    "methodology": "Lagrangian inverse trajectory reconstruction & forward hydrodynamic advection.",
+    "confidence_score_definition": "Relative evidence score based on trajectory convergence and environmental consistency, NOT a calibrated probability.",
+    "uncertainty_notice": "Origin positions and future slick locations are estimated spatial zones with associated dispersion bounds.",
+    "limitations": [
+      "Backward advection assumes hydrodynamic field reversibility under turbulent diffusion approximations.",
+      "Weathering processes (evaporation, emulsification, dissolution) are not fully coupled to initial position estimates.",
+      "Sub-grid turbulence and unresolved coastal bathymetry may introduce spatial displacement bias.",
+      "Environmental data resolution (temporal and spatial) constrains trajectory precision."
+    ]
+  }
+}

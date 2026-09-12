@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
@@ -10,10 +10,46 @@ from app.models.spill import SpillDetection
 from app.models.vessel import VesselAttribution
 from app.models.feature2_result import Feature2Result
 from app.schemas.case import CaseResponse
+from app.schemas.vessel import VesselResponse
 from app.tasks.pipeline import execute_5step_pipeline
 from app.config import settings
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
+
+
+def _persist_vessel_records(db: Session, case_id: str, vessels: list):
+    """Persists candidate vessels including Feature 3 multi-factor evidence fields."""
+    for v in vessels:
+        v_obj = VesselAttribution(
+            id=f"{case_id}-{v['mmsi']}",
+            case_id=case_id,
+            mmsi=v["mmsi"],
+            name=v["name"],
+            type=v["type"],
+            flag=v["flag"],
+            overall_score=v["overall_score"],
+            proximity_score=v["proximity_score"],
+            trajectory_score=v["trajectory_score"],
+            behavioral_score=v["behavioral_score"],
+            warning_flags=v["warning_flags"],
+            current_latitude=v["current_latitude"],
+            current_longitude=v["current_longitude"],
+            heading_deg=v["heading_deg"],
+            speed_kts=v["speed_kts"],
+            composite_score=v.get("composite_score", v["overall_score"]),
+            risk_class=v.get("risk_class"),
+            scoring_mode=v.get("scoring_mode", "UNCERTAINTY_AWARE_5_FACTOR"),
+            origin_presence_score=v.get("origin_presence_score"),
+            behavior_anomaly_score=v.get("behavior_anomaly_score"),
+            dwell_time_score=v.get("dwell_time_score"),
+            ais_gap_score=v.get("ais_gap_score"),
+            approach_departure_score=v.get("approach_departure_score"),
+            evidence_metrics=v.get("evidence_metrics"),
+            quality_flags=v.get("quality_flags"),
+            trajectory_geojson=v.get("trajectory_geojson"),
+            explanation=v.get("explanation"),
+        )
+        db.add(v_obj)
 
 
 def _persist_feature2_result(db: Session, case_id: str, summary: dict):
@@ -153,25 +189,7 @@ async def create_case(
         db.add(spill_obj)
 
         # Save Vessel DB Entries
-        for v in summary.get("vessels", []):
-            v_obj = VesselAttribution(
-                id=f"{case_id}-{v['mmsi']}",
-                case_id=case_id,
-                mmsi=v["mmsi"],
-                name=v["name"],
-                type=v["type"],
-                flag=v["flag"],
-                overall_score=v["overall_score"],
-                proximity_score=v["proximity_score"],
-                trajectory_score=v["trajectory_score"],
-                behavioral_score=v["behavioral_score"],
-                warning_flags=v["warning_flags"],
-                current_latitude=v["current_latitude"],
-                current_longitude=v["current_longitude"],
-                heading_deg=v["heading_deg"],
-                speed_kts=v["speed_kts"]
-            )
-            db.add(v_obj)
+        _persist_vessel_records(db, case_id, summary.get("vessels", []))
 
         # Save Feature 2 Results
         _persist_feature2_result(db, case_id, summary)
@@ -260,25 +278,7 @@ async def continue_feature2(
 
     # Re-save Vessel entries
     db.query(VesselAttribution).filter(VesselAttribution.case_id == case_id).delete()
-    for v in summary.get("vessels", []):
-        v_obj = VesselAttribution(
-            id=f"{case_id}-{v['mmsi']}",
-            case_id=case_id,
-            mmsi=v["mmsi"],
-            name=v["name"],
-            type=v["type"],
-            flag=v["flag"],
-            overall_score=v["overall_score"],
-            proximity_score=v["proximity_score"],
-            trajectory_score=v["trajectory_score"],
-            behavioral_score=v["behavioral_score"],
-            warning_flags=v["warning_flags"],
-            current_latitude=v["current_latitude"],
-            current_longitude=v["current_longitude"],
-            heading_deg=v["heading_deg"],
-            speed_kts=v["speed_kts"]
-        )
-        db.add(v_obj)
+    _persist_vessel_records(db, case_id, summary.get("vessels", []))
 
     # Re-save Feature 2 entries
     db.query(Feature2Result).filter(Feature2Result.case_id == case_id).delete()
@@ -307,11 +307,40 @@ def get_case_spill(case_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Spill record not found for this case")
     return spill
 
-@router.get("/{case_id}/vessels")
-def get_case_vessels(case_id: str, db: Session = Depends(get_db)):
-    """Returns all vessel attribution records for a specific case."""
-    vessels = db.query(VesselAttribution).filter(VesselAttribution.case_id == case_id).all()
-    return vessels
+@router.get("/{case_id}/vessels", response_model=List[VesselResponse])
+def get_case_vessels(
+    case_id: str,
+    sort: Optional[str] = Query("score", description="Sort field: 'score' (default) or 'mmsi'"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Max vessels to return"),
+    db: Session = Depends(get_db)
+):
+    """Returns ranked vessel attribution records for a specific case with deterministic sorting."""
+    query = db.query(VesselAttribution).filter(VesselAttribution.case_id == case_id)
+    if sort == "mmsi":
+        query = query.order_by(VesselAttribution.mmsi.asc())
+    else:
+        query = query.order_by(VesselAttribution.overall_score.desc(), VesselAttribution.mmsi.asc())
+
+    if limit:
+        query = query.limit(limit)
+
+    return query.all()
+
+
+@router.get("/{case_id}/vessels/{mmsi}", response_model=VesselResponse)
+def get_case_vessel_by_mmsi(
+    case_id: str,
+    mmsi: str,
+    db: Session = Depends(get_db)
+):
+    """Returns a single vessel attribution record including full forensic explanation and evidence metrics."""
+    vessel = db.query(VesselAttribution).filter(
+        VesselAttribution.case_id == case_id,
+        VesselAttribution.mmsi == mmsi
+    ).first()
+    if not vessel:
+        raise HTTPException(status_code=404, detail=f"Vessel with MMSI {mmsi} not found for case {case_id}")
+    return vessel
 
 @router.get("/{case_id}/feature2")
 def get_case_feature2(case_id: str, db: Session = Depends(get_db)):

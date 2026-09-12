@@ -33,8 +33,8 @@ from ...config import Feature2Settings, default_settings
 class CopernicusConfig(BaseModel):
     """Configuration and credentials for Copernicus Marine Service API and storage."""
     dataset_id: str = Field(
-        default="cmems_mod_glo_phy_my_0.083deg_P1D-m",
-        description="Copernicus dataset product identifier (e.g. reanalysis or operational forecast)."
+        default="cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        description="Copernicus dataset product identifier (e.g. analysis or operational forecast)."
     )
     api_url: str = Field(
         default="https://europe.cloudservice.copernicus.eu/cas/v1/tickets",
@@ -85,7 +85,7 @@ class CopernicusCurrentsProvider(HistoricalCurrentProvider):
         cache_manager: Optional[EnvironmentalDataCacheManager] = None,
     ):
         base_cfg = config or CopernicusConfig(
-            dataset_id=os.getenv("COPERNICUS_HISTORICAL_DATASET_ID", "cmems_mod_glo_phy_my_0.083deg_P1D-m")
+            dataset_id=os.getenv("COPERNICUS_HISTORICAL_DATASET_ID", "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m")
         )
         self.config = base_cfg
 
@@ -277,8 +277,11 @@ class CopernicusCurrentsProvider(HistoricalCurrentProvider):
             self.reader.validate_domain_coverage(window, mode="historical")
             return True
         except Exception as e:
-            logger.error(f"[CopernicusCurrentsProvider] CMEMS download failed: {e}")
-            raise EnvironmentalDataUnavailableError(f"Copernicus Marine retrieval failed: {e}") from e
+            err_msg = str(e).strip() or type(e).__name__
+            if "CouldNotConnectToAuthenticationSystem" in type(e).__name__:
+                err_msg = "Authentication failed or unable to connect to Copernicus Marine CAS (verify CMEMS_USERNAME / CMEMS_PASSWORD credentials)"
+            logger.error(f"[CopernicusCurrentsProvider] CMEMS download failed: {err_msg}")
+            raise EnvironmentalDataUnavailableError(f"Copernicus Marine retrieval failed: {err_msg}") from e
 
     def get_current(
         self,

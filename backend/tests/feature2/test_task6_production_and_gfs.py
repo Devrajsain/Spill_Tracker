@@ -61,7 +61,7 @@ from feature2.exceptions import (
 )
 from feature2.schemas.input_schema import SlickDetectionInput
 from feature2.schemas.simulation_schema import EnvironmentalQueryWindow
-from tests.fixtures.environment.create_fixtures import generate_all_fixtures, FIXTURES_DIR
+from tests.feature2.fixtures.environment.create_fixtures import generate_all_fixtures, FIXTURES_DIR
 
 
 class TestTask6ProductionAndGFS(unittest.TestCase):

@@ -26,6 +26,8 @@ from ..simulation.forward.engine import ForwardSimulationEngine
 def get_default_demo_fixtures(project_root: str) -> Dict[str, str]:
     """Returns local paths to demo environmental NetCDF fixture files."""
     env_dir = os.path.join(project_root, "tests", "fixtures", "environment")
+    if not os.path.exists(env_dir):
+        env_dir = os.path.join(project_root, "tests", "feature2", "fixtures", "environment")
     return {
         "historical_wind": os.path.join(env_dir, "north_sea_era5_2018.nc"),
         "historical_currents": os.path.join(env_dir, "north_sea_copernicus_2018.nc"),
@@ -40,7 +42,11 @@ def load_demo_slick_input(project_root: str) -> SlickDetectionInput:
     Uses real georeferenced Zenodo Sentinel-1 scene if available; otherwise fallback fixture.
     """
     tiff_path = os.path.join(project_root, "tests", "fixtures", "Oil", "00000.tif")
+    if not os.path.exists(tiff_path):
+        tiff_path = os.path.join(project_root, "tests", "feature2", "fixtures", "Oil", "00000.tif")
     mask_path = os.path.join(project_root, "tests", "fixtures", "Mask_oil", "00000.tif")
+    if not os.path.exists(mask_path):
+        mask_path = os.path.join(project_root, "tests", "feature2", "fixtures", "Mask_oil", "00000.tif")
 
     if os.path.exists(tiff_path) and os.path.exists(mask_path):
         from scripts.validate_real_scene import inspect_sentinel1_geotiff, derive_feature1_output_from_mask

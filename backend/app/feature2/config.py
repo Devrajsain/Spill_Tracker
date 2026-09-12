@@ -69,8 +69,8 @@ class DataSourceConfig(BaseModel):
         description="Path to local NetCDF file for GFS forecast wind. Can also be set via GFS_WIND_DATA_PATH env var."
     )
     copernicus_historical_dataset_id: str = Field(
-        default="cmems_mod_glo_phy_my_0.083deg_P1D-m",
-        description="Copernicus Marine dataset ID for historical reanalysis currents."
+        default="cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        description="Copernicus Marine dataset ID for ocean analysis & forecast currents."
     )
     copernicus_forecast_dataset_id: str = Field(
         default="cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",

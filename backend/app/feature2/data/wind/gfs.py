@@ -86,9 +86,11 @@ class GFSWindProvider(ForecastWindProvider):
         data_path: Optional[str] = None,
         cache_manager: Optional[EnvironmentalDataCacheManager] = None,
         settings: Optional[Feature2Settings] = None,
+        mode: str = "forecast",
     ):
         self.config = config or GFSConfig()
         self.settings = settings or default_settings
+        self.mode = mode.lower() if mode else "forecast"
 
         # Resolve local data path: explicit arg > config > environment variable
         resolved_path = (
@@ -126,17 +128,25 @@ class GFSWindProvider(ForecastWindProvider):
 
     @property
     def provider_name(self) -> str:
-        return "gfs_forecast_wind"
+        return "gfs_operational_wind" if self.mode == "historical" else "gfs_forecast_wind"
+
+    @property
+    def data_category(self) -> str:
+        return self.mode
+
+    @property
+    def field_type(self) -> str:
+        return "surface_wind"
 
     @property
     def provenance(self) -> Dict[str, Any]:
         """Returns provenance metadata for the active GFS forecast wind dataset."""
         return {
             "source": "NOAA GFS",
-            "product": "gfs_0p25_forecast",
+            "product": "gfs_0p25_forecast" if self.mode == "forecast" else "gfs_0p25_operational",
             "variables": [self.config.u_var, self.config.v_var],
             "units": "m/s",
-            "mode": "forecast",
+            "mode": self.mode,
             "source_type": self._source_type,
             "cache_status": self._cache_status,
             "active_filepath": self._active_filepath,
@@ -168,6 +178,17 @@ class GFSWindProvider(ForecastWindProvider):
         self._source_type = source_type
         self._cache_status = cache_status
 
+    def close(self) -> None:
+        """Closes reader dataset and releases open file handles."""
+        if self.reader is not None:
+            self.reader.close_dataset()
+
+    def __enter__(self) -> "GFSWindProvider":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     def build_forecast_request(self, window: Any) -> Dict[str, Any]:
         """Constructs forecast window parameters for GFS wind queries."""
         from ..domain import extract_query_bounds
@@ -192,18 +213,23 @@ class GFSWindProvider(ForecastWindProvider):
             f"&hourly=wind_u_component_10m,wind_v_component_10m&wind_speed_unit=ms&forecast_days={forecast_days}{past_param}"
         )
 
-    def fetch_grid(self, window: EnvironmentalQueryWindow) -> bool:
+    def fetch_grid(self, window: EnvironmentalQueryWindow, mode: Optional[str] = None) -> bool:
         """
-        Prepares or caches the gridded GFS forecast wind field for target spacetime window.
-        Validates coverage against the query window.
+        Prepares or caches the gridded GFS surface wind field for target spacetime window.
+        Supports both forward forecast (+0 to +48h) and operational historical backtracking (-72h to 0h).
+        Validates coverage and data integrity against the query window.
         """
         from ..domain import extract_query_bounds
-        min_lat, max_lat, min_lon, max_lon, start_time, end_time = extract_query_bounds(window, mode="forecast")
+        target_mode = (mode or self.mode).lower()
+        if target_mode not in ["historical", "forecast"]:
+            target_mode = "forecast"
+
+        min_lat, max_lat, min_lon, max_lon, start_time, end_time = extract_query_bounds(window, mode=target_mode)
 
         # Case 1: Active local dataset already loaded
         if self.reader is not None:
             try:
-                self.reader.validate_domain_coverage(window, mode="forecast")
+                self.reader.validate_domain_coverage(window, mode=target_mode)
                 return True
             except EnvironmentalCoverageError as cov_err:
                 logger.warning(f"[GFSWindProvider] Loaded dataset coverage failure: {cov_err}")
@@ -212,12 +238,12 @@ class GFSWindProvider(ForecastWindProvider):
         # Case 2: Configured local data path
         if self.data_path and os.path.exists(self.data_path):
             self._init_reader(self.data_path, source_type="local_netcdf", cache_status="direct")
-            self.reader.validate_domain_coverage(window, mode="forecast")
+            self.reader.validate_domain_coverage(window, mode=target_mode)
             return True
 
         # Case 3: Check cache by deterministic key
         cache_key = generate_cache_key(
-            provider_name="gfs",
+            provider_name=f"gfs_{target_mode}",
             dataset_id="gfs_0p25",
             variables=[self.config.u_var, self.config.v_var],
             min_lat=min_lat,
@@ -233,28 +259,51 @@ class GFSWindProvider(ForecastWindProvider):
             if hasattr(self, "settings") and self.settings and hasattr(self.settings, "data")
             else 21600.0
         )
-        cached_file = self.cache_manager.get_cached_file("gfs", cache_key, max_age_seconds=forecast_ttl)
+        cached_file = self.cache_manager.get_cached_file(f"gfs_{target_mode}", cache_key, max_age_seconds=forecast_ttl)
+        if not cached_file:
+            cached_file = self.cache_manager.get_cached_file("gfs", cache_key, max_age_seconds=forecast_ttl)
+        if not cached_file:
+            key_gfs = generate_cache_key(
+                provider_name="gfs",
+                dataset_id="gfs_0p25",
+                variables=[self.config.u_var, self.config.v_var],
+                min_lat=min_lat,
+                max_lat=max_lat,
+                min_lon=min_lon,
+                max_lon=max_lon,
+                start_time_iso=start_time.isoformat(),
+                end_time_iso=end_time.isoformat(),
+            )
+            cached_file = self.cache_manager.get_cached_file("gfs", key_gfs, max_age_seconds=forecast_ttl)
+            if not cached_file:
+                cached_file = self.cache_manager.get_cached_file(f"gfs_{target_mode}", key_gfs, max_age_seconds=forecast_ttl)
+
         if cached_file:
             self._init_reader(cached_file, source_type="cache", cache_status="hit")
-            self.reader.validate_domain_coverage(window, mode="forecast")
+            self.reader.validate_domain_coverage(window, mode=target_mode)
             return True
 
-        # Case 4: Remote download from NOAA GFS operational forecast
+        # Case 4: Remote download from NOAA GFS operational forecast via Open-Meteo
         now_utc = datetime.now(timezone.utc)
-        # Check historical archive limitation:
-        # Operational forecast systems provide rolling forecasts for current/future horizons.
-        if end_time < now_utc - timedelta(days=7):
+        if target_mode == "historical" and start_time < now_utc - timedelta(days=14):
             logger.warning(
-                f"[GFSWindProvider] NOAA GFS operational forecast is unavailable for historical query window ending {end_time.isoformat()}. "
-                "Operational forecasts are available only for current and forward horizons."
+                f"[GFSWindProvider] NOAA GFS operational rolling archive is limited to past 14 days. "
+                f"Historical query start {start_time.isoformat()} exceeds archive window."
             )
             raise TemporalCoverageError(
-                f"NOAA GFS operational forecast is unavailable for historical query window ending {end_time.isoformat()}. "
-                "Operational forecasts are available only for current and forward horizons."
+                f"NOAA GFS operational rolling archive is limited to past 14 days. "
+                f"Historical query start {start_time.isoformat()} exceeds archive window."
+            )
+        elif target_mode == "forecast" and end_time < now_utc - timedelta(days=7):
+            logger.warning(
+                f"[GFSWindProvider] NOAA GFS operational forecast is unavailable for historical query window ending {end_time.isoformat()}."
+            )
+            raise TemporalCoverageError(
+                f"NOAA GFS operational forecast is unavailable for historical query window ending {end_time.isoformat()}."
             )
 
         try:
-            logger.info(f"[GFSWindProvider] Initiating live NOAA GFS operational forecast download for key '{cache_key}'")
+            logger.info(f"[GFSWindProvider] Initiating live NOAA GFS download ({target_mode}) for key '{cache_key}'")
 
             def _download_action(tmp_path: str) -> None:
                 res_deg = self.config.spatial_resolution_deg
@@ -276,7 +325,7 @@ class GFSWindProvider(ForecastWindProvider):
                 flat_lons = mesh_lons.flatten()
 
                 past_h = max((now_utc - start_time).total_seconds() / 3600.0, 0.0)
-                past_days = int(min(np.ceil(past_h / 24.0) + 1, 7)) if past_h > 0 else 0
+                past_days = int(min(np.ceil(past_h / 24.0) + 1, 14)) if past_h > 0 else 0
                 forward_h = max((end_time - now_utc).total_seconds() / 3600.0, 0.0)
                 forecast_days = int(min(max(np.ceil(forward_h / 24.0) + 1, 2), 16)) if forward_h > 0 else 2
 
@@ -294,14 +343,33 @@ class GFSWindProvider(ForecastWindProvider):
                 times = pd.to_datetime(time_strings).tz_localize(None).to_numpy(dtype="datetime64[ns]")
                 n_times = len(times)
 
-                u_grid = np.zeros((n_times, len(lats), len(lons)), dtype=np.float32)
-                v_grid = np.zeros((n_times, len(lats), len(lons)), dtype=np.float32)
+                if n_times == 0:
+                    raise EnvironmentalDataUnavailableError("Empty time series returned from NOAA GFS endpoint")
+
+                # Verify actual returned timestamps against required query window (Adjustment 2)
+                first_time = pd.to_datetime(times[0]).tz_localize("UTC")
+                last_time = pd.to_datetime(times[-1]).tz_localize("UTC")
+                if first_time > start_time + timedelta(hours=1) or last_time < end_time - timedelta(hours=1):
+                    raise EnvironmentalCoverageError(
+                        f"Open-Meteo GFS returned timestamps [{first_time.isoformat()} to {last_time.isoformat()}] "
+                        f"do not cover the required historical window [{start_time.isoformat()} to {end_time.isoformat()}]."
+                    )
+
+                u_grid = np.full((n_times, len(lats), len(lons)), np.nan, dtype=np.float32)
+                v_grid = np.full((n_times, len(lats), len(lons)), np.nan, dtype=np.float32)
 
                 for idx, loc in enumerate(locations):
                     i = idx // len(lons)
                     j = idx % len(lons)
-                    u_grid[:, i, j] = loc["hourly"]["wind_u_component_10m"]
-                    v_grid[:, i, j] = loc["hourly"]["wind_v_component_10m"]
+                    if i < len(lats) and j < len(lons):
+                        u_vals = loc["hourly"]["wind_u_component_10m"]
+                        v_vals = loc["hourly"]["wind_v_component_10m"]
+                        u_grid[:, i, j] = u_vals
+                        v_grid[:, i, j] = v_vals
+
+                # Strict environmental data validation (Part 8 / Adjustment 2)
+                if np.isnan(u_grid).any() or np.isnan(v_grid).any():
+                    raise EnvironmentalDataUnavailableError("Downloaded GFS surface wind grid contains NaN or missing values.")
 
                 ds = xr.Dataset(
                     data_vars={
@@ -312,18 +380,19 @@ class GFSWindProvider(ForecastWindProvider):
                     attrs={
                         "source": "NOAA NCEP GFS",
                         "product": "gfs_0p25",
-                        "units": "m/s"
+                        "units": "m/s",
+                        "mode": target_mode,
                     }
                 )
                 ds.to_netcdf(tmp_path)
 
             final_path = self.cache_manager.atomic_save(
-                "gfs",
+                f"gfs_{target_mode}",
                 cache_key,
                 _download_action,
             )
             self._init_reader(final_path, source_type="remote_download", cache_status="miss")
-            self.reader.validate_domain_coverage(window, mode="forecast")
+            self.reader.validate_domain_coverage(window, mode=target_mode)
             return True
 
         except (TemporalCoverageError, EnvironmentalCoverageError):

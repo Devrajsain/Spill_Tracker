@@ -1,227 +1,136 @@
+"""
+AIS Vessel Attribution Service for Spill Tracker.
+Integrates Feature 3 multi-factor evidence correlation engine with Feature 2 drift context.
+"""
+
 import os
-import csv
-import math
 import logging
-from collections import defaultdict
-from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Optional, Union
+
+from app.feature3.adapter import extract_feature2_context
+from app.feature3.engine import run_feature3_engine
+from app.feature3.schemas import (
+    Feature2OriginContext,
+    Feature3EngineConfig,
+    LatLon,
+    ReleaseTimeWindowContract,
+    VesselAttributionResult,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    R = 6371.0
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2.0) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2.0) ** 2
-    return 2.0 * R * math.asin(math.sqrt(max(0.0, min(1.0, a))))
-
-
-_MID_FLAG_MAP = {
-    "419": "India",
-    "636": "Liberia",
-    "477": "Hong Kong",
-    "352": "Panama",
-    "354": "Panama",
-    "355": "Panama",
-    "356": "Panama",
-    "357": "Panama",
-    "235": "United Kingdom",
-    "538": "Marshall Islands",
-    "563": "Singapore",
-    "412": "China",
-    "413": "China",
-    "414": "China",
-}
-
-
 def run_vessel_attribution_model(
-    csv_path: Optional[str],
-    origin_lat: float,
-    origin_lon: float
+    csv_path: Optional[str] = None,
+    origin_lat: Optional[float] = None,
+    origin_lon: Optional[float] = None,
+    feature2_context: Optional[Feature2OriginContext] = None,
+    feature2_result: Optional[Any] = None,
+    spill_detection: Optional[Any] = None,
+    config: Optional[Feature3EngineConfig] = None,
+    scoring_mode: Optional[str] = None,
+    allow_demo_fallback: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    Correlates AIS vessel telemetry records from the uploaded CSV against Feature 2 drift origin coordinates.
-    Ranks candidate vessels by attribution probability score (0 to 100).
-    Every returned vessel directly corresponds to an MMSI in the uploaded CSV.
+    Executes Feature 3 AIS Vessel Attribution and returns serialized candidate vessel records.
+    
+    SAFETY NOTICE:
+      If csv_path is missing or not found, this function returns [] unless allow_demo_fallback
+      is explicitly set to True (for demo/test cases only). It will NEVER silently substitute
+      sample data during real case analysis.
     """
-    if not csv_path or not os.path.exists(csv_path):
-        logger.warning(f"AIS CSV not found at {csv_path}. Cannot perform vessel attribution.")
-        return []
+    cfg = config or Feature3EngineConfig()
+    cfg.allow_demo_fallback = allow_demo_fallback
 
-    # Read records from CSV
-    vessel_points = defaultdict(list)
-    vessel_meta = {}
-
-    try:
-        with open(csv_path, mode="r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            field_map = {col.lower().strip(): col for col in (reader.fieldnames or [])}
-
-            lat_col = field_map.get("lat") or field_map.get("latitude")
-            lon_col = field_map.get("lon") or field_map.get("longitude")
-            mmsi_col = field_map.get("mmsi")
-            sog_col = field_map.get("sog") or field_map.get("speed") or field_map.get("speed_knots")
-            cog_col = field_map.get("cog") or field_map.get("heading") or field_map.get("heading_degrees")
-            time_col = field_map.get("timestamp") or field_map.get("time") or field_map.get("datetime")
-            name_col = field_map.get("vessel_name") or field_map.get("name") or field_map.get("shipname")
-            type_col = field_map.get("vessel_type") or field_map.get("type") or field_map.get("shiptype")
-            flag_col = field_map.get("flag") or field_map.get("country")
-
-            if not mmsi_col or not lat_col or not lon_col:
-                logger.warning(f"AIS CSV missing required columns (mmsi, lat, lon): {reader.fieldnames}")
+    # Resolve AIS telemetry file
+    effective_csv = csv_path
+    if not effective_csv or not os.path.exists(effective_csv):
+        if allow_demo_fallback:
+            from app.config import settings
+            sample_csv = os.path.join(settings.UPLOAD_DIR, "sample_ais_telemetry.csv")
+            if os.path.exists(sample_csv):
+                logger.info(f"Using explicit demo AIS dataset: {sample_csv}")
+                effective_csv = sample_csv
+            else:
+                logger.warning("No AIS telemetry provided and demo sample not found.")
                 return []
-
-            for row in reader:
-                raw_mmsi = str(row.get(mmsi_col) or "").strip()
-                if not raw_mmsi:
-                    continue
-                try:
-                    lat_val = float(row[lat_col])
-                    lon_val = float(row[lon_col])
-                except (ValueError, TypeError):
-                    continue
-
-                sog_val = 0.0
-                if sog_col and row.get(sog_col):
-                    try:
-                        sog_val = float(row[sog_col])
-                    except ValueError:
-                        sog_val = 0.0
-
-                cog_val = 0.0
-                if cog_col and row.get(cog_col):
-                    try:
-                        cog_val = float(row[cog_col])
-                    except ValueError:
-                        cog_val = 0.0
-
-                time_val = str(row.get(time_col) or "") if time_col else ""
-
-                vessel_points[raw_mmsi].append({
-                    "lat": lat_val,
-                    "lon": lon_val,
-                    "sog": sog_val,
-                    "cog": cog_val,
-                    "time": time_val,
-                })
-
-                if raw_mmsi not in vessel_meta:
-                    v_name = str(row.get(name_col) or "").strip() if name_col else ""
-                    v_type = str(row.get(type_col) or "").strip() if type_col else ""
-                    v_flag = str(row.get(flag_col) or "").strip() if flag_col else ""
-                    vessel_meta[raw_mmsi] = {
-                        "name": v_name,
-                        "type": v_type,
-                        "flag": v_flag,
-                    }
-
-    except Exception as exc:
-        logger.error(f"Error parsing AIS CSV {csv_path}: {exc}")
-        return []
-
-    if not vessel_points:
-        logger.warning(f"No valid AIS telemetry points extracted from {csv_path}")
-        return []
-
-    # Score each candidate vessel based on proximity and track kinematics relative to origin
-    scored_candidates = []
-
-    for mmsi, points in vessel_points.items():
-        distances = [_haversine_km(p["lat"], p["lon"], origin_lat, origin_lon) for p in points]
-        min_dist_km = min(distances)
-
-        # 1. Proximity score (0 to 100) based on closest approach to Feature 2 origin
-        if min_dist_km <= 1.0:
-            proximity_score = round(98.0 - min_dist_km * 2.0, 1)
-        elif min_dist_km <= 5.0:
-            proximity_score = round(max(70.0, 96.0 - (min_dist_km - 1.0) * 6.5), 1)
-        elif min_dist_km <= 15.0:
-            proximity_score = round(max(40.0, 70.0 - (min_dist_km - 5.0) * 3.0), 1)
-        elif min_dist_km <= 30.0:
-            proximity_score = round(max(20.0, 40.0 - (min_dist_km - 15.0) * 1.3), 1)
         else:
-            proximity_score = round(max(5.0, 20.0 - (min_dist_km - 30.0) * 0.4), 1)
+            logger.info("No AIS telemetry file uploaded for this case. Attribution skipped.")
+            return []
 
-        # 2. Trajectory score (0 to 100) based on corridor alignment
-        if min_dist_km <= 5.0:
-            trajectory_score = round(min(99.0, proximity_score + 2.0), 1)
-        elif min_dist_km <= 15.0:
-            trajectory_score = round(max(35.0, proximity_score - 2.0), 1)
+    # Resolve Feature 2 Origin Context
+    effective_context = feature2_context
+    if not effective_context:
+        if feature2_result:
+            effective_context = extract_feature2_context(
+                feature2_data=feature2_result,
+                spill_data=spill_detection,
+            )
+        elif origin_lat is not None and origin_lon is not None:
+            now_utc = datetime.now(timezone.utc)
+            effective_context = Feature2OriginContext(
+                spill_id="PIPELINE_SPILL",
+                origin=LatLon(latitude=origin_lat, longitude=origin_lon),
+                release_window=ReleaseTimeWindowContract(
+                    start=now_utc - timedelta(hours=6),
+                    end=now_utc,
+                ),
+                uncertainty_radius_km=3.0,
+            )
         else:
-            trajectory_score = round(max(10.0, proximity_score * 0.9), 1)
+            logger.warning("Insufficient Feature 2 context to perform vessel attribution.")
+            return []
 
-        # 3. Behavioral score & warning flags
-        warning_flags = []
-        sogs = [p["sog"] for p in points if p["sog"] > 0]
-        sog_diff = (max(sogs) - min(sogs)) if sogs else 0.0
-
-        if min_dist_km <= 5.0:
-            warning_flags.append("NEAR ORIGIN WINDOW")
-
-        if sog_diff >= 2.0:
-            warning_flags.append("SPEED DROP")
-
-        # Check for course deviation
-        cogs = [p["cog"] for p in points]
-        if len(cogs) > 2 and (max(cogs) - min(cogs)) >= 45.0:
-            warning_flags.append("COURSE DEVIATION")
-
-        if not warning_flags:
-            warning_flags.append("NORMAL TRANSIT")
-
-        if min_dist_km <= 5.0:
-            behavioral_score = 88.0 if "SPEED DROP" in warning_flags or "COURSE DEVIATION" in warning_flags else 76.0
-        elif min_dist_km <= 15.0:
-            behavioral_score = 66.0
-        else:
-            behavioral_score = 50.0
-
-        # 4. Overall composite score
-        overall_score = round(
-            0.50 * proximity_score + 0.30 * trajectory_score + 0.20 * behavioral_score, 1
+    # Execute Feature 3 Engine
+    try:
+        response = run_feature3_engine(
+            feature2_context=effective_context,
+            ais_data=effective_csv,
+            config=cfg,
+            scoring_mode=scoring_mode,
         )
-        overall_score = min(99.0, max(5.0, overall_score))
+    except Exception as exc:
+        logger.error(f"Feature 3 attribution engine failed: {exc}", exc_info=True)
+        return []
 
-        # 5. Metadata resolution
-        meta = vessel_meta.get(mmsi, {})
-        v_name = meta.get("name")
-        if not v_name:
-            v_name = f"Vessel {mmsi}"
+    # Serialize results to match database & API models
+    serialized_vessels: List[Dict[str, Any]] = []
+    for v in response.vessels:
+        # Convert Pydantic datetime objects in evidence to iso strings
+        evidence_dict = v.evidence.model_dump()
+        if evidence_dict.get("closest_approach_time"):
+            if isinstance(evidence_dict["closest_approach_time"], datetime):
+                evidence_dict["closest_approach_time"] = evidence_dict["closest_approach_time"].isoformat()
 
-        v_type = meta.get("type")
-        if not v_type:
-            v_type = "Crude Oil Tanker" if min_dist_km <= 8.0 else "Commercial Vessel"
-
-        v_flag = meta.get("flag")
-        if not v_flag:
-            mid = mmsi[:3]
-            v_flag = _MID_FLAG_MAP.get(mid, "Merchant Marine")
-
-        last_pt = points[-1]
-
-        scored_candidates.append({
-            "id": f"v-{mmsi}",
-            "mmsi": str(mmsi),
-            "name": v_name,
-            "type": v_type,
-            "flag": v_flag,
-            "overall_score": overall_score,
-            "proximity_score": proximity_score,
-            "trajectory_score": trajectory_score,
-            "behavioral_score": behavioral_score,
-            "warning_flags": warning_flags,
-            "current_latitude": round(float(last_pt["lat"]), 6),
-            "current_longitude": round(float(last_pt["lon"]), 6),
-            "heading_deg": round(float(last_pt["cog"]), 1),
-            "speed_kts": f"{float(last_pt['sog']):.1f} kts",
-            "_min_dist_km": min_dist_km,
+        serialized_vessels.append({
+            "id": v.id,
+            "mmsi": v.mmsi,
+            "name": v.name,
+            "type": v.type,
+            "flag": v.flag,
+            "overall_score": v.overall_score,
+            "proximity_score": round(v.scores.origin_presence, 1),
+            "trajectory_score": round(v.scores.approach_departure if v.scores.approach_departure is not None else v.scores.origin_presence, 1),
+            "behavioral_score": round(v.scores.behavior_anomaly, 1),
+            "warning_flags": v.warning_flags,
+            "current_latitude": v.current_latitude,
+            "current_longitude": v.current_longitude,
+            "heading_deg": v.heading_deg,
+            "speed_kts": v.speed_kts,
+            # Extended Feature 3 fields
+            "composite_score": v.overall_score,
+            "risk_class": v.risk_class,
+            "scoring_mode": v.scoring_mode,
+            "origin_presence_score": round(v.scores.origin_presence, 1),
+            "behavior_anomaly_score": round(v.scores.behavior_anomaly, 1),
+            "dwell_time_score": round(v.scores.dwell_time, 1),
+            "ais_gap_score": round(v.scores.ais_gap, 1),
+            "approach_departure_score": round(v.scores.approach_departure, 1) if v.scores.approach_departure is not None else None,
+            "evidence_metrics": evidence_dict,
+            "quality_flags": v.quality_flags,
+            "trajectory_geojson": v.trajectory_geojson,
+            "explanation": v.explanation,
         })
 
-    # Sort by overall score descending
-    scored_candidates.sort(key=lambda x: x["overall_score"], reverse=True)
-
-    # Clean up internal sorting key
-    for c in scored_candidates:
-        c.pop("_min_dist_km", None)
-
-    return scored_candidates
+    return serialized_vessels

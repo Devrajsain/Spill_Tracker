@@ -94,7 +94,15 @@ class Feature2PipelineService:
         validate_production_data_sources(self.settings)
         slick = parse_feature1_input(slick)
         obs_time_utc = normalize_to_utc(slick.observation_time)
-        logger.info(f"[Feature2Pipeline] Tracing origin for spill '{slick.spill_id}' at T0={obs_time_utc.isoformat()}")
+        curr_provider = self.origin_estimator.currents_provider
+        wind_provider = self.origin_estimator.wind_provider
+        is_mock = (
+            "mock" in type(curr_provider).__name__.lower()
+            or "mock" in type(wind_provider).__name__.lower()
+            or self.settings.environment == "testing"
+            or self.settings.data.currents_provider == "mock"
+        )
+        mode_str = "MOCK" if is_mock else "REAL"
 
         # Derive dynamic historical query domain anchored to Feature 1 observation
         obs_domain = SentinelObservationDomain.from_slick_input(slick)
@@ -106,6 +114,22 @@ class Feature2PipelineService:
             buffer_distance_km=hist_buffer_km,
             historical_horizon_hours=hist_horizon_h,
         )
+
+        bbox = hist_domain.environmental_bbox
+        logger.info("======================================================")
+        logger.info(f"FEATURE2 DATA MODE: {mode_str}")
+        logger.info("BACKTRACKING ENVIRONMENTAL MODEL:")
+        logger.info("  Historical ocean current = CMEMS (Copernicus Marine)")
+        logger.info("  Historical/operational wind = GFS (NOAA/Open-Meteo)")
+        logger.info("QUERY PARAMETERS:")
+        logger.info(f"  Spill ID: {slick.spill_id}")
+        logger.info(f"  Detection Timestamp (T0): {obs_time_utc.isoformat()}")
+        logger.info(f"  Backtrack Horizon: {hist_horizon_h} hours (T0 - {hist_horizon_h}h -> T0)")
+        logger.info(f"  Simulation dt: {self.settings.backward.simulation_step_seconds}s")
+        logger.info(f"  Bounding Box: min_lat={bbox[0]:.4f}, max_lat={bbox[1]:.4f}, min_lon={bbox[2]:.4f}, max_lon={bbox[3]:.4f}")
+        logger.info(f"  Currents Provider: {getattr(curr_provider, 'provider_name', type(curr_provider).__name__)} (dataset: {getattr(getattr(curr_provider, 'config', None), 'dataset_id', 'N/A')})")
+        logger.info(f"  Wind Provider: {getattr(wind_provider, 'provider_name', type(wind_provider).__name__)} (mode: {getattr(wind_provider, 'mode', 'N/A')})")
+        logger.info("======================================================")
 
         # Validate environmental provider domain coverage
         if hasattr(self.origin_estimator.currents_provider, "fetch_grid"):

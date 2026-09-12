@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Any
 
 class SpillResponse(BaseModel):
@@ -18,5 +18,4 @@ class SpillResponse(BaseModel):
     origin_timestamp: str
     drift_trajectory_json: Any
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

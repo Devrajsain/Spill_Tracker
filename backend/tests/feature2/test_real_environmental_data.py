@@ -42,7 +42,7 @@ from feature2.pipeline.service import Feature2PipelineService
 from feature2.schemas.input_schema import CentroidCoordinates, GeoJSONGeometry, SlickDetectionInput
 from feature2.schemas.simulation_schema import EnvironmentalQueryWindow
 from feature2.simulation.forward.engine import ForwardSimulationEngine
-from tests.fixtures.environment.create_fixtures import generate_all_fixtures, FIXTURES_DIR
+from tests.feature2.fixtures.environment.create_fixtures import generate_all_fixtures, FIXTURES_DIR
 
 
 class TestRealEnvironmentalData(unittest.TestCase):
