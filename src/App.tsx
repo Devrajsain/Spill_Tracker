@@ -4,8 +4,7 @@ import { HeroSection } from './components/HeroSection';
 import { MissionBanner } from './components/MissionBanner';
 import { CoreCapabilities } from './components/CoreCapabilities';
 import { OperationalWorkflow } from './components/OperationalWorkflow';
-import { OperationalStatistics } from './components/OperationalStatistics';
-import { WhySlickTrace } from './components/WhySlickTrace';
+import { SystemCapabilityMatrix } from './components/SystemCapabilityMatrix';
 import { Footer } from './components/Footer';
 import { WorkflowUploadModal } from './components/WorkflowUploadModal';
 import { Dashboard } from './components/Dashboard';
@@ -66,8 +65,7 @@ export const App: React.FC = () => {
               onNavigate={handleNavigate}
               onOpenUpload={() => setIsUploadModalOpen(true)}
             />
-            <OperationalStatistics />
-            <WhySlickTrace />
+            <SystemCapabilityMatrix />
           </>
         )}
 

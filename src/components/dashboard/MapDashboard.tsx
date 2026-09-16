@@ -120,6 +120,7 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({ onNavigate, onOpenUp
             (spillInfo?.spill_latitude && spillInfo.spill_latitude !== 0) ? spillInfo.spill_latitude : (data.case?.center_latitude && data.case.center_latitude !== 0 ? data.case.center_latitude : 22.47),
             (spillInfo?.spill_longitude && spillInfo.spill_longitude !== 0) ? spillInfo.spill_longitude : (data.case?.center_longitude && data.case.center_longitude !== 0 ? data.case.center_longitude : 69.21),
           ],
+          zoom: 10,
           spillPolygon: safeParseJSON(spillInfo?.polygon_geojson)?.coordinates?.[0]?.map((c: number[]) => [c[1], c[0]]) || [],
           driftPath: (safeParseJSON(driftInfo?.drift_trajectory) || []).map((pt: any) => ({
             label: pt.time,

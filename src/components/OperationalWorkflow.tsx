@@ -1,5 +1,5 @@
-import React from 'react';
-import { UploadCloud, Cpu, Compass, Ship, LayoutDashboard, ArrowRight, Play } from 'lucide-react';
+import React, { useState } from 'react';
+import { Upload, Satellite, Compass, Target, FileText, ChevronRight, Play } from 'lucide-react';
 
 interface OperationalWorkflowProps {
   onNavigate: (view: 'home' | 'dashboard' | 'workflow') => void;
@@ -7,135 +7,129 @@ interface OperationalWorkflowProps {
 }
 
 export const OperationalWorkflow: React.FC<OperationalWorkflowProps> = ({ onNavigate, onOpenUpload }) => {
+  const [activeStep, setActiveStep] = useState(0);
+
   const steps = [
     {
-      step: '01',
-      title: 'Upload Evidence',
-      icon: UploadCloud,
-      subtitle: 'Imagery & AIS Dataset Ingestion',
-      description: 'Upload high-resolution satellite imagery alongside AIS CSV data containing coordinates, timestamps, and vessel telemetry.'
+      id: 1,
+      title: 'Upload SAR + AIS',
+      icon: Upload,
+      description: 'Ingestion of Sentinel-1 C-Band SAR GeoTIFF imagery paired with MarineCadastre / territorial AIS CSV telemetry stream.',
+      points: ['Sentinel-1 SAR IW Dual-Pol', '10m Resolution Grid', 'AIS Class-A Telemetry Log']
     },
     {
-      step: '02',
-      title: 'Satellite Analysis',
-      icon: Cpu,
-      subtitle: 'AI Boundary Segmentation',
-      description: 'Deep neural networks extract slick contours, calculate total surface area, and output detection confidence scores.'
+      id: 2,
+      title: 'Detect U-Net',
+      icon: Satellite,
+      description: 'Deep convolutional U-Net AI model segments dark radar backscatter patches, distinguishing oil slicks from biogenic lookalikes.',
+      points: ['Dual-Polarization (VV+VH)', 'Boundary Polygon Vectorization', 'Area & Perimeter Computation']
     },
     {
-      step: '03',
-      title: 'Drift Reconstruction',
+      id: 3,
+      title: 'Backtrack Lagrangian',
       icon: Compass,
-      subtitle: 'Hydrodynamic Hindcasting',
-      description: 'MetOcean wind and surface current models reverse-simulate transport physics to establish probable origin coordinates.'
+      description: 'Runge-Kutta 4th Order backward particle simulation driven by INCOIS surface currents and ERA5 marine winds up to -48 hours.',
+      points: ['INCOIS 1/12° Current Vectors', 'ERA5 10m Atmospheric Winds', 'Origin Locus & Uncertainty Ellipse']
     },
     {
-      step: '04',
-      title: 'AIS Correlation',
-      icon: Ship,
-      subtitle: 'Probabilistic Attribution',
-      description: 'Vessel track histories are spatio-temporally matched against drift corridors to score candidate ships by likelihood.'
+      id: 4,
+      title: 'Correlate AIS',
+      icon: Target,
+      description: 'Spatio-temporal intersection of historical vessel positions with the backtrack corridor, flagging speed drops and loitering.',
+      points: ['Closest Point of Approach (CPA)', 'Speed & Course Deviation Filter', 'Multi-Factor Probability Ranking']
     },
     {
-      step: '05',
-      title: 'Investigation Report',
-      icon: LayoutDashboard,
-      subtitle: 'Operational Briefing',
-      description: 'Interactive dashboard displays drift paths, suspect ranking, telemetry logs, and court-ready forensic reports.'
+      id: 5,
+      title: 'Report Forensic PDF',
+      icon: FileText,
+      description: 'Automated synthesis into tamper-evident forensic intelligence dossier compliant with MARPOL 73/78 for statutory Coast Guard prosecution.',
+      points: ['SHA-256 Chain-of-Custody', 'Coordinate & Timestamp Logs', 'Court-Admissible Evidence Export']
     }
   ];
 
   return (
-    <section className="bg-gov-light py-16 border-b border-gov-border">
+    <section className="bg-gov-light py-16 border-b border-gov-border" id="workflow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-gov-blue bg-white border border-gov-border px-3 py-1 rounded-gov">
-              FORENSIC PIPELINE
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-navy-800 tracking-tight">
-              Operational Evidence Workflow
-            </h2>
-            <p className="text-sm text-gov-muted max-w-2xl">
-              A 5-stage automated evidence pipeline designed to process satellite captures, model hydrodynamic drift, and generate court-admissible vessel attribution evidence.
-            </p>
-          </div>
+        <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-gov-blue bg-gov-blue/10 border border-gov-blue/20 px-3 py-1 rounded-gov inline-block">
+            OPERATIONAL PIPELINE (NTRO SIH26143)
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-navy-800 tracking-tight">
+            5-STAGE EVIDENCE PIPELINE
+          </h2>
+          <p className="text-sm text-gov-muted leading-relaxed">
+            End-to-End Forensic Investigation Workflow<br/>
+            Standard operating procedure from raw Earth-observation ingestion to statutory tribunal-ready vessel attribution.
+          </p>
+        </div>
 
-          <div className="mt-4 md:mt-0 flex items-center space-x-3">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          {/* Navigation Sidebar */}
+          <div className="w-full lg:w-1/3 space-y-2">
             <button
-              onClick={onOpenUpload}
-              className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white bg-navy-800 hover:bg-navy-900 rounded-gov transition-colors flex items-center gap-2 shadow-sm"
+              onClick={() => onNavigate('workflow')}
+              className="w-full mb-4 px-4 py-3 bg-navy-800 text-white rounded-gov font-bold text-xs uppercase tracking-wider flex items-center justify-between hover:bg-navy-900 transition-colors"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Execute Workflow Demo</span>
+              <div className="flex items-center gap-2">
+                <Play className="w-4 h-4" />
+                <span>Execute Workflow Runner</span>
+              </div>
             </button>
-          </div>
-        </div>
-
-        {/* Process Diagram: Horizontal steps with thin connecting lines */}
-        <div className="relative">
-          {/* Thin connecting horizontal line behind cards (desktop) */}
-          <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-gov-border -translate-y-6 z-0"></div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 relative z-10">
-            {steps.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <div 
-                  key={item.step}
-                  onClick={onOpenUpload}
-                  className="bg-white border border-gov-border rounded-gov p-5 shadow-sm hover:border-navy-800 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
-                >
-                  <div>
-                    {/* Header: Step Number & Icon */}
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-xs font-mono font-bold text-gov-blue bg-gov-light px-2 py-0.5 rounded border border-gov-border">
-                        STEP {item.step}
-                      </span>
-                      <div className="p-2 bg-gov-light text-navy-800 rounded-gov border border-gov-border group-hover:bg-navy-800 group-hover:text-white transition-colors">
-                        <Icon className="w-5 h-5 stroke-[1.5]" />
-                      </div>
-                    </div>
-
-                    <h3 className="text-base font-bold text-navy-800 mb-1 group-hover:text-gov-blue transition-colors">
-                      {item.title}
-                    </h3>
-
-                    <p className="text-[11px] font-semibold text-gov-blue uppercase tracking-wider mb-3">
-                      {item.subtitle}
-                    </p>
-
-                    <p className="text-xs text-gov-muted leading-relaxed">
-                      {item.description}
-                    </p>
-                  </div>
-
-                  <div className="pt-4 mt-4 border-t border-gov-border flex items-center justify-between text-[11px] text-gov-muted group-hover:text-navy-800">
-                    <span className="font-mono">STAGE {index + 1}/5</span>
-                    <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
+            {steps.map((step, idx) => (
+              <button
+                key={step.id}
+                onClick={() => setActiveStep(idx)}
+                className={`w-full text-left px-4 py-3 rounded-gov border transition-all duration-200 flex items-center justify-between ${
+                  activeStep === idx 
+                    ? 'bg-white border-gov-blue shadow-sm text-navy-800' 
+                    : 'bg-transparent border-transparent text-gov-muted hover:bg-white/50 hover:border-gov-border'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-mono font-bold ${activeStep === idx ? 'text-gov-blue' : 'text-gov-muted'}`}>
+                    {step.id}
+                  </span>
+                  <span className="text-sm font-bold uppercase tracking-wide">
+                    {step.title}
+                  </span>
                 </div>
-              );
-            })}
+                {activeStep === idx && <ChevronRight className="w-4 h-4 text-gov-blue" />}
+              </button>
+            ))}
+          </div>
+
+          {/* Active Step Content */}
+          <div className="w-full lg:w-2/3 bg-white border border-gov-border rounded-gov p-8 shadow-sm">
+            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gov-border">
+              <div className="p-4 bg-gov-light rounded-full text-navy-800 border border-gov-border">
+                {React.createElement(steps[activeStep].icon, { className: "w-8 h-8" })}
+              </div>
+              <div>
+                <span className="text-xs font-bold text-gov-blue uppercase tracking-wider mb-1 block">
+                  STAGE {steps[activeStep].id}
+                </span>
+                <h3 className="text-2xl font-bold text-navy-800">
+                  {steps[activeStep].title}
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-sm text-gov-text leading-relaxed mb-8">
+              {steps[activeStep].description}
+            </p>
+
+            <div className="space-y-3">
+              {steps[activeStep].points.map((point, i) => (
+                <div key={i} className="flex items-center gap-3 bg-gov-light border border-gov-border px-4 py-3 rounded-gov">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gov-blue shrink-0" />
+                  <span className="text-sm font-semibold text-navy-800">{point}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Workflow Callout Box */}
-        <div className="mt-8 bg-white border border-gov-border rounded-gov p-4 flex flex-col sm:flex-row items-center justify-between text-xs text-gov-muted gap-4">
-          <div className="flex items-center space-x-3">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0 animate-ping"></span>
-            <span>
-              <strong className="text-navy-800">Interactive Pipeline Ready:</strong> You can upload test evidence images and CSV datasets directly into the workflow runner.
-            </span>
-          </div>
-          <button
-            onClick={onOpenUpload}
-            className="text-navy-800 font-bold uppercase tracking-wider hover:underline flex items-center gap-1 whitespace-nowrap"
-          >
-            <span>Run Interactive Case Upload</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+
       </div>
     </section>
   );

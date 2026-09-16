@@ -196,12 +196,10 @@ export async function continueCaseFeature2(
   return res.json();
 }
 
-/** List all forensic cases. */
 export async function listCases(): Promise<CaseResponse[]> {
   return fetchJSON<CaseResponse[]>(`${API_BASE}/cases/`);
 }
 
-/** Delete a case by ID. */
 export async function deleteCase(caseId: string): Promise<{ message: string; id: string }> {
   const res = await fetch(`${API_BASE}/cases/${caseId}`, {
     method: 'DELETE',

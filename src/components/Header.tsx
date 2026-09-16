@@ -12,18 +12,15 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onOpenU
 
   const navLinks = [
     { label: 'Home', action: () => onNavigate('home'), isActive: currentView === 'home' },
-    { label: 'About', action: () => onNavigate('home'), isActive: false },
     { label: 'Forensic Workflow', action: () => onNavigate('workflow'), isActive: currentView === 'workflow' },
     { label: 'Surveillance Dashboard', action: () => onNavigate('dashboard'), isActive: currentView === 'dashboard' },
-    { label: 'Upload Case', action: onOpenUpload, isActive: false },
-    { label: 'Contact', action: () => onNavigate('home'), isActive: false },
+    { label: 'About', action: () => onNavigate('home'), isActive: false },
   ];
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-50">
-      <div className="header-glass">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 lg:h-[72px]">
+    <header className="fixed top-0 left-0 w-full z-50 bg-[rgba(6,18,35,0.55)] backdrop-blur-[20px] shadow-md border-b border-[rgba(255,255,255,0.08)] transition-all duration-300">
+      <div className="w-full px-8 h-[80px]">
+          <div className="relative flex justify-between items-center h-full">
             {/* Brand */}
             <div
               className="flex items-center space-x-3 cursor-pointer group flex-shrink-0"
@@ -38,25 +35,25 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onOpenU
                 <span className="text-lg font-bold tracking-tight text-white">
                   NEERAKSH
                 </span>
-                <p className="text-[10px] text-white/50 font-medium leading-tight">
-                  Marine Oil Spill Detection &amp; Vessel Attribution System
-                </p>
               </div>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center space-x-1">
+            <nav className="hidden lg:flex items-center space-x-8 absolute left-1/2 -translate-x-1/2">
               {navLinks.map((link) => (
                 <button
                   key={link.label}
                   onClick={link.action}
-                  className={`px-3 py-2 text-[13px] font-medium transition-all rounded-md ${
+                  className={`relative px-1 py-1 text-[13px] font-bold tracking-wide transition-all duration-250 ${
                     link.isActive
-                      ? 'text-white nav-link-active'
-                      : 'text-white/70 hover:text-white hover:bg-white/5'
+                      ? 'text-white'
+                      : 'text-white/70 hover:text-white'
                   }`}
                 >
                   {link.label}
+                  {link.isActive && (
+                    <span className="absolute -bottom-1.5 left-0 w-full h-[2px] bg-[#00C8FF] shadow-[0_0_8px_#00C8FF]" />
+                  )}
                 </button>
               ))}
             </nav>
@@ -88,7 +85,6 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onOpenU
             </div>
           </div>
         </div>
-      </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
