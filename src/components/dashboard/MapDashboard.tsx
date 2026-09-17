@@ -116,6 +116,7 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({ onNavigate, onOpenUp
           originTime: driftInfo?.origin_timestamp || feature2Data?.origin_timestamp || '—',
           detectionTime: spillInfo?.detection_timestamp || '—',
           source: spillInfo?.satellite_source || '—',
+          zoom: data.case?.zoom_level || 6,
           center: [
             (spillInfo?.spill_latitude && spillInfo.spill_latitude !== 0) ? spillInfo.spill_latitude : (data.case?.center_latitude && data.case.center_latitude !== 0 ? data.case.center_latitude : 22.47),
             (spillInfo?.spill_longitude && spillInfo.spill_longitude !== 0) ? spillInfo.spill_longitude : (data.case?.center_longitude && data.case.center_longitude !== 0 ? data.case.center_longitude : 69.21),
