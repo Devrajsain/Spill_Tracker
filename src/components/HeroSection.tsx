@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React from 'react';
 import {
   Shield, ArrowRight, Upload, Satellite, Waves, Scale,
   Zap, FileText, Radio, Crosshair, Target,
 } from 'lucide-react';
+import { ThreeDBackground } from './ThreeDBackground';
 
 interface HeroSectionProps {
   onNavigate: (view: 'home' | 'dashboard' | 'workflow') => void;
@@ -10,30 +11,10 @@ interface HeroSectionProps {
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onNavigate, onOpenUpload }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.play().catch(() => {});
-    }
-  }, []);
-
   return (
     <section className="hero-section relative overflow-hidden">
-      {/* ─── Video Background (DO NOT MODIFY) ─── */}
-      <video
-        ref={videoRef}
-        className="hero-video"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        aria-hidden="true"
-      >
-        <source src="/backgrund_video.mp4" type="video/mp4" />
-      </video>
+      {/* ─── 3D Real-time Background ─── */}
+      <ThreeDBackground />
 
       {/* ─── Overlay ─── */}
       <div className="hero-overlay" aria-hidden="true" />
